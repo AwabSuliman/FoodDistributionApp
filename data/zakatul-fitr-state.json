@@ -1,0 +1,110 @@
+{
+  "approvedDrivers": [
+    {
+      "name": "Omar Hassan",
+      "phone": "(555) 019-2881",
+      "email": "omar@example.com"
+    },
+    {
+      "name": "Layla Ahmed",
+      "phone": "(555) 012-7810",
+      "email": "layla@example.com"
+    },
+    {
+      "name": "Ibrahim Said",
+      "phone": "(555) 016-5301",
+      "email": "ibrahim@example.com"
+    }
+  ],
+  "deniedDrivers": [],
+  "nextRequestNumber": 1043,
+  "requests": [
+    {
+      "id": "MWI-1042",
+      "recipient": "Amina Rahman",
+      "phone": "(555) 018-4402",
+      "email": "amina@example.com",
+      "address": "1248 Crescent Ave, Springfield, VA",
+      "householdSize": 6,
+      "boxWeight": "42 lb",
+      "instructions": "Call when outside. Apartment is on the second floor.",
+      "status": "Approved",
+      "updated": "12 min ago"
+    },
+    {
+      "id": "MWI-1041",
+      "recipient": "Yusuf Ali",
+      "phone": "(555) 019-2881",
+      "email": "yusuf@example.com",
+      "address": "790 Maple Ridge Ct, Springfield, VA",
+      "householdSize": 3,
+      "boxWeight": "26 lb",
+      "instructions": "Leave with adult family member only.",
+      "status": "Driver assigned",
+      "driver": "Omar Hassan",
+      "updated": "25 min ago"
+    },
+    {
+      "id": "MWI-1040",
+      "recipient": "Samira Osman",
+      "phone": "(555) 012-7810",
+      "email": "samira@example.com",
+      "address": "45 Hillcrest Dr, Annandale, VA",
+      "householdSize": 5,
+      "boxWeight": "36 lb",
+      "instructions": "Ring bell twice. Family prefers evening delivery.",
+      "status": "Not delivered",
+      "driver": "Layla Ahmed",
+      "updated": "44 min ago"
+    },
+    {
+      "id": "MWI-1039",
+      "recipient": "Nadia Khan",
+      "phone": "(555) 014-9320",
+      "email": "nadia@example.com",
+      "address": "302 Pineview Ln, Falls Church, VA",
+      "householdSize": 4,
+      "boxWeight": "32 lb",
+      "instructions": "Front entrance faces the parking lot.",
+      "status": "Under review",
+      "updated": "1 hr ago"
+    },
+    {
+      "id": "MWI-1038",
+      "recipient": "Hassan Noor",
+      "phone": "(555) 016-5301",
+      "email": "hassan@example.com",
+      "address": "18 Meadow St, Springfield, VA",
+      "householdSize": 2,
+      "boxWeight": "18 lb",
+      "instructions": "Recipient requested delivery after Asr.",
+      "status": "Delivered",
+      "driver": "Ibrahim Said",
+      "updated": "Today"
+    },
+    {
+      "id": "MWI-1037",
+      "recipient": "Maryam Farah",
+      "phone": "(555) 011-9044",
+      "email": "maryam@example.com",
+      "address": "911 Brookside Way, Annandale, VA",
+      "householdSize": 7,
+      "boxWeight": "48 lb",
+      "instructions": "Admin should confirm address before approval.",
+      "status": "Submitted",
+      "updated": "Today"
+    }
+  ],
+  "pendingDrivers": [
+    {
+      "name": "Zain Malik",
+      "phone": "(555) 011-2109",
+      "email": "zain@example.com"
+    },
+    {
+      "name": "Huda Saleh",
+      "phone": "(555) 015-4431",
+      "email": "huda@example.com"
+    }
+  ]
+}
