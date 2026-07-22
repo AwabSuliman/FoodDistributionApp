@@ -67,7 +67,7 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
             <div>
               <p className="text-xs font-bold tracking-wide text-[#53645f]">Masjid Al-Wasatiyah Wal-Itidaal</p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#111817] sm:text-3xl">
-                SadaqahFlow
+                TempName (will change later)
               </h1>
               <p className="mt-2 text-sm font-semibold text-[#53645f]">
                 {auth ? `${auth.name} · ${auth.email} · ${auth.role}` : "Demo mode: configure Supabase to require sign-in"}
