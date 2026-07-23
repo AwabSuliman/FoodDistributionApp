@@ -63,9 +63,9 @@ export type RequestEditInput = {
 };
 
 export type SeasonInput = {
-  endsOn?: string;
+  endsOn: string;
   name: string;
-  startsOn?: string;
+  startsOn: string;
 };
 
 export type FamilySizeRow = {

@@ -285,9 +285,9 @@ export async function updateDatabaseRequestDetails(id: string, input: RequestEdi
 export async function activateDatabaseSeason(input: SeasonInput) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("activate_season", {
-    season_ends_on: input.endsOn || null,
+    season_ends_on: input.endsOn,
     season_name: input.name,
-    season_starts_on: input.startsOn || null,
+    season_starts_on: input.startsOn,
   });
   throwDatabaseError(error, "Unable to activate the season.");
 }

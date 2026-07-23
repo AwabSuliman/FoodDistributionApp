@@ -27,7 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams?: Promi
           {!config && (
             <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">
               Supabase authentication is ready in code, but the project needs `NEXT_PUBLIC_SUPABASE_URL` and
-              `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local` before sign-in can work.
+              `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` before sign-in can work.
             </div>
           )}
           {params?.error && (
@@ -35,9 +35,11 @@ export default async function LoginPage({ searchParams }: { searchParams?: Promi
               {params.error}
             </div>
           )}
-          <Link className="mt-5 inline-flex text-sm font-bold text-[#1f5d54]" href="/dashboard">
-            View local demo dashboard
-          </Link>
+          {!config && (
+            <Link className="mt-5 inline-flex text-sm font-bold text-[#1f5d54]" href="/dashboard">
+              View local demo dashboard
+            </Link>
+          )}
         </section>
         <AuthForm nextPath={nextPath} />
       </div>
