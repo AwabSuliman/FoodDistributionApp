@@ -1,8 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAuthenticatedRole } from "@/lib/authz";
-import { claimRequest, createDriverApplication, createRequest, resolvePendingDriver, setRequestStatus } from "@/lib/store";
+import { requireApprovedDriverOrAdmin, requireAuthenticatedRole } from "@/lib/authz";
+import {
+  assignRequest,
+  claimRequest,
+  createDriverApplication,
+  createRequest,
+  resolvePendingDriver,
+  setDeliveryStatus,
+  setRequestStatus,
+  unclaimRequest,
+} from "@/lib/data";
 import type { DriverApplicationDecision, RequestStatus } from "@/lib/types";
 
 const editableStatuses = new Set<RequestStatus>(["Under review", "Approved", "Delivered", "Not delivered", "Denied"]);
@@ -31,7 +40,7 @@ function validateEmail(email: string) {
 }
 
 export async function submitRequest(formData: FormData) {
-  await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+  const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
 
   const householdSize = Number(readRequiredText(formData, "householdSize"));
   const email = readRequiredText(formData, "email");
@@ -42,7 +51,7 @@ export async function submitRequest(formData: FormData) {
 
   validateEmail(email);
 
-  await createRequest({
+  await createRequest(profile, {
     address: readRequiredText(formData, "address"),
     email,
     householdSize,
@@ -66,32 +75,41 @@ export async function updateRequestStatus(id: string, status: RequestStatus) {
 }
 
 export async function updateDeliveryStatus(id: string, status: RequestStatus) {
-  await requireAuthenticatedRole(["driver", "admin"]);
+  await requireApprovedDriverOrAdmin();
 
   if (!deliveryStatuses.has(status)) {
     throw new Error("Unsupported delivery status.");
   }
 
-  await setRequestStatus(id, status);
+  await setDeliveryStatus(id, status);
   revalidateDashboards();
 }
 
 export async function claimDelivery(id: string, formData: FormData) {
-  const profile = await requireAuthenticatedRole(["driver", "admin"]);
-  const driverName = profile && profile.role !== "admin" ? profile.name : readRequiredText(formData, "driver");
+  const profile = await requireApprovedDriverOrAdmin();
 
-  await claimRequest(id, driverName);
+  if (profile?.role === "admin") {
+    await assignRequest(id, readRequiredText(formData, "driver"));
+  } else {
+    await claimRequest(id, profile?.name);
+  }
+  revalidateDashboards();
+}
+
+export async function unclaimDelivery(id: string) {
+  await requireApprovedDriverOrAdmin();
+  await unclaimRequest(id);
   revalidateDashboards();
 }
 
 export async function submitDriverApplication(formData: FormData) {
-  await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+  const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
 
   const email = readRequiredText(formData, "email");
 
   validateEmail(email);
 
-  await createDriverApplication({
+  await createDriverApplication(profile, {
     email,
     name: readRequiredText(formData, "name"),
     phone: readRequiredText(formData, "phone"),

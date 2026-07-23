@@ -6,6 +6,7 @@ import {
   resolveDriverApplication,
   submitDriverApplication,
   submitRequest,
+  unclaimDelivery,
   updateDeliveryStatus,
   updateRequestStatus,
 } from "./actions";
@@ -284,9 +285,9 @@ function AdminView({
                     <td className="px-3 py-3 text-[#66736f]">{request.updated}</td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <ActionButton action={updateRequestStatus.bind(null, request.id, "Under review")} label="Review" />
-                        <ActionButton action={updateRequestStatus.bind(null, request.id, "Approved")} label="Approve" primary />
-                        <ActionButton action={updateRequestStatus.bind(null, request.id, "Denied")} label="Deny" />
+                        <ActionButton action={updateRequestStatus.bind(null, request.recordId ?? request.id, "Under review")} label="Review" />
+                        <ActionButton action={updateRequestStatus.bind(null, request.recordId ?? request.id, "Approved")} label="Approve" primary />
+                        <ActionButton action={updateRequestStatus.bind(null, request.recordId ?? request.id, "Denied")} label="Deny" />
                       </div>
                     </td>
                   </tr>
@@ -364,14 +365,14 @@ function DriverView({
   requests: DistributionRequest[];
 }) {
   const availableDrivers =
-    auth?.role === "admin"
+    auth?.role === "admin" || !auth
       ? approvedDrivers
       : approvedDrivers.filter((driver) => driver.email.toLowerCase() === auth?.email.toLowerCase());
-  const driverNames = availableDrivers.map((driver) => driver.name);
-  const [selectedDriver, setSelectedDriver] = useState(driverNames[0] ?? "");
-  const activeDriver = selectedDriver || driverNames[0] || "";
+  const [selectedDriver, setSelectedDriver] = useState(availableDrivers[0]?.userId ?? availableDrivers[0]?.name ?? "");
+  const activeDriver =
+    availableDrivers.find((driver) => (driver.userId ?? driver.name) === selectedDriver) ?? availableDrivers[0];
   const available = requests.filter((request) => ["Approved", "Not delivered"].includes(request.status));
-  const assigned = requests.filter((request) => request.driver === activeDriver && request.status !== "Delivered");
+  const assigned = requests.filter((request) => request.driver === activeDriver?.name && request.status !== "Delivered");
 
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -381,16 +382,16 @@ function DriverView({
             Driving as
             <select
               className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
-              disabled={driverNames.length === 0}
+              disabled={availableDrivers.length === 0}
               onChange={(event) => setSelectedDriver(event.target.value)}
-              value={activeDriver}
+              value={activeDriver?.userId ?? activeDriver?.name ?? ""}
             >
-              {driverNames.length === 0 ? (
+              {availableDrivers.length === 0 ? (
                 <option value="">No approved drivers</option>
               ) : (
-                driverNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
+                availableDrivers.map((driver) => (
+                  <option key={driver.userId ?? driver.email} value={driver.userId ?? driver.name}>
+                    {driver.name}
                   </option>
                 ))
               )}
@@ -405,7 +406,12 @@ function DriverView({
             </p>
           ) : (
             available.map((request) => (
-              <DeliveryCard driverName={activeDriver} key={request.id} mode="available" request={request} />
+              <DeliveryCard
+                driverId={activeDriver?.userId ?? activeDriver?.name ?? ""}
+                key={request.id}
+                mode="available"
+                request={request}
+              />
             ))
           )}
         </div>
@@ -421,7 +427,7 @@ function DriverView({
           </ActionForm>
         </Panel>
 
-      <Panel title="Claimed by me" kicker={activeDriver || "Driver"}>
+      <Panel title="Claimed by me" kicker={activeDriver?.name ?? "Driver"}>
         <div className="grid gap-3">
           {assigned.length === 0 ? (
             <p className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3 text-sm font-semibold text-[#53645f]">
@@ -429,7 +435,12 @@ function DriverView({
             </p>
           ) : (
             assigned.map((request) => (
-              <DeliveryCard driverName={activeDriver} key={request.id} mode="claimed" request={request} />
+              <DeliveryCard
+                driverId={activeDriver?.userId ?? activeDriver?.name ?? ""}
+                key={request.id}
+                mode="claimed"
+                request={request}
+              />
             ))
           )}
         </div>
@@ -636,11 +647,11 @@ function RequestTimeline({ request }: { request?: DistributionRequest }) {
 }
 
 function DeliveryCard({
-  driverName,
+  driverId,
   mode,
   request,
 }: {
-  driverName: string;
+  driverId: string;
   mode: "available" | "claimed";
   request: DistributionRequest;
 }) {
@@ -665,21 +676,22 @@ function DeliveryCard({
       </dl>
 
       {mode === "available" ? (
-        <ActionForm action={claimDelivery.bind(null, request.id)} successMessage="Delivery claimed.">
-          <input name="driver" type="hidden" value={driverName} />
+        <ActionForm action={claimDelivery.bind(null, request.recordId ?? request.id)} successMessage="Delivery claimed.">
+          <input name="driver" type="hidden" value={driverId} />
           <button
             className="mt-4 w-full rounded-md bg-[#1f5d54] px-3 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-[#9aaaa5]"
-            disabled={driverName === ""}
+            disabled={driverId === ""}
             type="submit"
           >
             Claim delivery
           </button>
         </ActionForm>
       ) : (
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <ActionButton action={updateDeliveryStatus.bind(null, request.id, "Out for delivery")} label="Start route" primary />
-          <ActionButton action={updateDeliveryStatus.bind(null, request.id, "Delivered")} label="Delivered" />
-          <ActionButton action={updateDeliveryStatus.bind(null, request.id, "Not delivered")} label="Missed" />
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <ActionButton action={updateDeliveryStatus.bind(null, request.recordId ?? request.id, "Out for delivery")} label="Start route" primary />
+          <ActionButton action={updateDeliveryStatus.bind(null, request.recordId ?? request.id, "Delivered")} label="Delivered" />
+          <ActionButton action={updateDeliveryStatus.bind(null, request.recordId ?? request.id, "Not delivered")} label="Missed" />
+          <ActionButton action={unclaimDelivery.bind(null, request.recordId ?? request.id)} label="Unclaim" />
         </div>
       )}
     </article>

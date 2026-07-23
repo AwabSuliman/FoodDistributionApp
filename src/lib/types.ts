@@ -5,6 +5,8 @@ export type RequestStatus =
   | "Under review"
   | "Approved"
   | "Driver assigned"
+  | "Heading to pickup"
+  | "Picked up"
   | "Out for delivery"
   | "Delivered"
   | "Not delivered"
@@ -12,6 +14,7 @@ export type RequestStatus =
 
 export type DistributionRequest = {
   id: string;
+  recordId?: string;
   recipient: string;
   phone: string;
   email: string;
@@ -28,6 +31,21 @@ export type PendingDriver = {
   name: string;
   phone: string;
   email: string;
+  userId?: string;
+};
+
+export type DriverApplicationStatus = "pending" | "approved" | "denied";
+
+export type CurrentDriverApplication = PendingDriver & {
+  status: DriverApplicationStatus;
+};
+
+export type Season = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  startsOn?: string;
+  endsOn?: string;
 };
 
 export type DriverApplicationDecision = "approved" | "denied";
@@ -42,7 +60,9 @@ export type FamilySizeRow = {
 };
 
 export type DashboardData = {
+  activeSeason?: Season;
   approvedDrivers: PendingDriver[];
+  currentDriverApplication?: CurrentDriverApplication;
   deniedDrivers: PendingDriver[];
   familySizeRows: FamilySizeRow[];
   pendingDrivers: PendingDriver[];

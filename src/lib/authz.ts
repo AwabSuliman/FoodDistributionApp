@@ -27,3 +27,23 @@ export async function requireAuthenticatedRole(allowedRoles: Role[]) {
 
   return profile;
 }
+
+export async function requireApprovedDriverOrAdmin() {
+  const profile = await requireAuthenticatedRole(["driver", "admin"]);
+
+  if (!profile || profile.role === "admin") return profile;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("driver_applications")
+    .select("status")
+    .eq("user_id", profile.userId)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error("Your driver application must be approved before you can manage deliveries.");
+  }
+
+  return profile;
+}
