@@ -1,34 +1,16 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
-import type { Role } from "@/lib/types";
+import { profileFromClaims } from "@/lib/auth-core";
+import type { AuthClaims, AuthProfile } from "@/lib/auth-core";
 
-export type AuthProfile = {
-  email: string;
-  name: string;
-  role: Role;
-  userId: string;
-};
-
-type Claims = {
-  app_metadata?: Record<string, unknown>;
-  email?: string;
-  sub?: string;
-  user_metadata?: Record<string, unknown>;
-};
+export { profileFromClaims, safeRedirectPath } from "@/lib/auth-core";
+export type { AuthProfile } from "@/lib/auth-core";
 
 export type SupabaseConfig = {
   anonKey: string;
   url: string;
 };
-
-export function safeRedirectPath(path: FormDataEntryValue | null | string | undefined) {
-  if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
-    return "/dashboard";
-  }
-
-  return path;
-}
 
 export function getSiteUrl(origin?: string) {
   return process.env.NEXT_PUBLIC_SITE_URL ?? origin ?? "http://localhost:3000";
@@ -77,28 +59,6 @@ export async function createSupabaseServerClient() {
   });
 }
 
-function readRole(claims: Claims): Role {
-  const trustedRole = claims.app_metadata?.role;
-  const requestedRole = claims.user_metadata?.role;
-
-  if (trustedRole === "admin" || trustedRole === "driver" || trustedRole === "recipient") {
-    return trustedRole;
-  }
-
-  return requestedRole === "driver" ? "driver" : "recipient";
-}
-
-export function profileFromClaims(claims: Claims): AuthProfile {
-  const name = claims.user_metadata?.name;
-
-  return {
-    email: typeof claims.email === "string" ? claims.email : "",
-    name: typeof name === "string" && name.trim() !== "" ? name : "Signed-in user",
-    role: readRole(claims),
-    userId: typeof claims.sub === "string" ? claims.sub : "",
-  };
-}
-
 export async function getAuthenticatedProfile(): Promise<AuthProfile | null> {
   if (!getSupabaseConfig()) {
     return null;
@@ -111,5 +71,5 @@ export async function getAuthenticatedProfile(): Promise<AuthProfile | null> {
     return null;
   }
 
-  return profileFromClaims(data.claims as Claims);
+  return profileFromClaims(data.claims as AuthClaims);
 }

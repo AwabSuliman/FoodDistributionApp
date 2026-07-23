@@ -4,6 +4,7 @@ import type { AuthProfile } from "./auth";
 import { getSupabaseConfig } from "./auth";
 import {
   assignDatabaseRequest,
+  activateDatabaseSeason,
   claimDatabaseRequest,
   createDatabaseDriverApplication,
   createDatabaseRequest,
@@ -12,6 +13,7 @@ import {
   setDatabaseDeliveryStatus,
   setDatabaseRequestStatus,
   unclaimDatabaseRequest,
+  updateDatabaseRequestDetails,
 } from "./database";
 import {
   claimRequest as claimFileRequest,
@@ -20,8 +22,9 @@ import {
   getDashboardData as getFileDashboardData,
   resolvePendingDriver as resolveFilePendingDriver,
   setRequestStatus as setFileRequestStatus,
+  updateRequestDetails as updateFileRequestDetails,
 } from "./store";
-import type { DriverApplicationDecision, DriverApplicationInput, RequestStatus } from "./types";
+import type { DriverApplicationDecision, DriverApplicationInput, RequestEditInput, RequestStatus, SeasonInput } from "./types";
 
 type RequestInput = Parameters<typeof createFileRequest>[0];
 
@@ -41,6 +44,16 @@ export async function createRequest(profile: AuthProfile | null, input: RequestI
 export async function setRequestStatus(id: string, status: RequestStatus) {
   if (getSupabaseConfig()) return setDatabaseRequestStatus(id, status);
   return setFileRequestStatus(id, status);
+}
+
+export async function updateRequestDetails(id: string, input: RequestEditInput) {
+  if (getSupabaseConfig()) return updateDatabaseRequestDetails(id, input);
+  return updateFileRequestDetails(id, input);
+}
+
+export async function activateSeason(input: SeasonInput) {
+  if (!getSupabaseConfig()) throw new Error("Connect Supabase before managing distribution seasons.");
+  return activateDatabaseSeason(input);
 }
 
 export async function claimRequest(id: string, driver?: string) {

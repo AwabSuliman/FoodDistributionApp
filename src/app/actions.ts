@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireApprovedDriverOrAdmin, requireAuthenticatedRole } from "@/lib/authz";
 import {
   assignRequest,
+  activateSeason,
   claimRequest,
   createDriverApplication,
   createRequest,
@@ -11,11 +12,18 @@ import {
   setDeliveryStatus,
   setRequestStatus,
   unclaimRequest,
+  updateRequestDetails,
 } from "@/lib/data";
 import type { DriverApplicationDecision, RequestStatus } from "@/lib/types";
 
-const editableStatuses = new Set<RequestStatus>(["Under review", "Approved", "Delivered", "Not delivered", "Denied"]);
-const deliveryStatuses = new Set<RequestStatus>(["Out for delivery", "Delivered", "Not delivered"]);
+const editableStatuses = new Set<RequestStatus>(["Under review", "Approved", "Denied"]);
+const deliveryStatuses = new Set<RequestStatus>([
+  "Heading to pickup",
+  "Picked up",
+  "Out for delivery",
+  "Delivered",
+  "Not delivered",
+]);
 const driverApplicationDecisions = new Set<DriverApplicationDecision>(["approved", "denied"]);
 
 function revalidateDashboards() {
@@ -71,6 +79,40 @@ export async function updateRequestStatus(id: string, status: RequestStatus) {
   }
 
   await setRequestStatus(id, status);
+  revalidateDashboards();
+}
+
+export async function editRequest(id: string, formData: FormData) {
+  await requireAuthenticatedRole(["admin"]);
+
+  const householdSize = Number(readRequiredText(formData, "householdSize"));
+  const boxWeightLbs = Number(readRequiredText(formData, "boxWeightLbs"));
+  const email = readRequiredText(formData, "email");
+
+  if (!Number.isInteger(householdSize) || householdSize < 1) throw new Error("Household size must be at least 1.");
+  if (!Number.isInteger(boxWeightLbs) || boxWeightLbs < 1) throw new Error("Box weight must be at least 1 lb.");
+  validateEmail(email);
+
+  await updateRequestDetails(id, {
+    address: readRequiredText(formData, "address"),
+    boxWeightLbs,
+    email,
+    householdSize,
+    instructions: readRequiredText(formData, "instructions"),
+    phone: readRequiredText(formData, "phone"),
+    recipient: readRequiredText(formData, "recipient"),
+  });
+  revalidateDashboards();
+}
+
+export async function createSeason(formData: FormData) {
+  await requireAuthenticatedRole(["admin"]);
+  const startsOn = readRequiredText(formData, "startsOn");
+  const endsOn = readRequiredText(formData, "endsOn");
+
+  if (endsOn < startsOn) throw new Error("Season end date must be after its start date.");
+
+  await activateSeason({ endsOn, name: readRequiredText(formData, "name"), startsOn });
   revalidateDashboards();
 }
 

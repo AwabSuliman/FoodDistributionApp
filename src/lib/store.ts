@@ -7,6 +7,7 @@ import type {
   DriverApplicationInput,
   FamilySizeRow,
   PendingDriver,
+  RequestEditInput,
   RequestStatus,
 } from "./types";
 
@@ -237,6 +238,29 @@ export async function setRequestStatus(id: string, status: RequestStatus) {
             ...request,
             driver: status === "Approved" || status === "Denied" ? undefined : request.driver,
             status,
+            updated: "Just now",
+          }
+        : request,
+    ),
+  });
+}
+
+export async function updateRequestDetails(id: string, input: RequestEditInput) {
+  const state = await readState();
+
+  await writeState({
+    ...state,
+    requests: state.requests.map((request) =>
+      request.id === id
+        ? {
+            ...request,
+            address: input.address,
+            boxWeight: `${input.boxWeightLbs} lb`,
+            email: input.email,
+            householdSize: input.householdSize,
+            instructions: input.instructions,
+            phone: input.phone,
+            recipient: input.recipient,
             updated: "Just now",
           }
         : request,

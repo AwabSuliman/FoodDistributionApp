@@ -11,6 +11,8 @@ import type {
   FamilySizeRow,
   PendingDriver,
   RequestStatus,
+  RequestEditInput,
+  SeasonInput,
   Season,
 } from "./types";
 
@@ -36,6 +38,7 @@ type RequestRow = {
   phone: string;
   recipient_name: string;
   request_number: number;
+  season_id: string;
   status: DatabaseRequestStatus;
   updated_at: string;
 };
@@ -192,7 +195,14 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
 
   const drivers = (driversResult.data ?? []) as DriverRow[];
   const driverNames = new Map(drivers.map((driver) => [driver.user_id, driver.name]));
-  const requests = ((requestsResult.data ?? []) as RequestRow[]).map((request) => toRequest(request, driverNames));
+  const requestRows = (requestsResult.data ?? []) as RequestRow[];
+  const activeSeasonId = (seasonResult.data as SeasonRow | null)?.id;
+  const requests = requestRows
+    .filter((request) => Boolean(activeSeasonId) && request.season_id === activeSeasonId)
+    .map((request) => toRequest(request, driverNames));
+  const requestHistory = requestRows
+    .filter((request) => !activeSeasonId || request.season_id !== activeSeasonId)
+    .map((request) => toRequest(request, driverNames));
   const ownApplication = drivers.find((driver) => driver.user_id === profile.userId);
 
   return {
@@ -202,6 +212,7 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
     deniedDrivers: profile.role === "admin" ? drivers.filter((driver) => driver.status === "denied").map(toDriver) : [],
     familySizeRows: profile.role === "admin" ? makeFamilySizeRows(requests) : [],
     pendingDrivers: profile.role === "admin" ? drivers.filter((driver) => driver.status === "pending").map(toDriver) : [],
+    requestHistory: profile.role === "admin" ? requestHistory : [],
     requests,
   };
 }
@@ -235,11 +246,50 @@ export async function createDatabaseRequest(profile: AuthProfile, input: Request
 export async function setDatabaseRequestStatus(id: string, status: RequestStatus) {
   const supabase = await createSupabaseServerClient();
   const changes: { assigned_driver_id?: null; status: DatabaseRequestStatus } = { status: toDatabaseStatus[status] };
+  const currentStatus = status === "Under review" ? "submitted" : "under_review";
 
   if (status === "Approved" || status === "Denied") changes.assigned_driver_id = null;
 
-  const { error } = await supabase.from("distribution_requests").update(changes).eq("id", id);
+  const { data, error } = await supabase
+    .from("distribution_requests")
+    .update(changes)
+    .eq("id", id)
+    .eq("status", currentStatus)
+    .select("id")
+    .maybeSingle();
   throwDatabaseError(error, "Unable to update the request.");
+  if (!data) throw new Error("This request has already moved to another status.");
+}
+
+export async function updateDatabaseRequestDetails(id: string, input: RequestEditInput) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("distribution_requests")
+    .update({
+      address: input.address,
+      box_weight_lbs: input.boxWeightLbs,
+      email: input.email,
+      household_size: input.householdSize,
+      instructions: input.instructions,
+      phone: input.phone,
+      recipient_name: input.recipient,
+    })
+    .eq("id", id)
+    .in("status", ["submitted", "under_review"])
+    .select("id")
+    .maybeSingle();
+  throwDatabaseError(error, "Unable to update the request details.");
+  if (!data) throw new Error("Only submitted requests can be edited.");
+}
+
+export async function activateDatabaseSeason(input: SeasonInput) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("activate_season", {
+    season_ends_on: input.endsOn || null,
+    season_name: input.name,
+    season_starts_on: input.startsOn || null,
+  });
+  throwDatabaseError(error, "Unable to activate the season.");
 }
 
 export async function claimDatabaseRequest(id: string) {

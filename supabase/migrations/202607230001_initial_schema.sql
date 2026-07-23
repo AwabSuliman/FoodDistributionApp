@@ -139,6 +139,15 @@ alter table public.driver_applications enable row level security;
 alter table public.distribution_requests enable row level security;
 alter table public.delivery_events enable row level security;
 
+revoke all on public.seasons from anon;
+revoke all on public.driver_applications from anon;
+revoke all on public.distribution_requests from anon;
+revoke all on public.delivery_events from anon;
+grant select on public.seasons to authenticated;
+grant select, insert, update on public.driver_applications to authenticated;
+grant select, insert, update on public.distribution_requests to authenticated;
+grant select on public.delivery_events to authenticated;
+
 create policy "authenticated users can read seasons"
 on public.seasons for select to authenticated
 using (true);
@@ -200,7 +209,7 @@ using (
   or actor_id = auth.uid()
   or exists (
     select 1 from public.distribution_requests request
-    where request.id = request_id
+    where request.id = delivery_events.request_id
       and (request.owner_id = auth.uid() or request.assigned_driver_id = auth.uid())
   )
 );
@@ -292,12 +301,20 @@ set search_path = ''
 as $$
 declare
   released public.distribution_requests;
+  previous_status public.request_status;
 begin
+  select status into previous_status
+  from public.distribution_requests
+  where id = target_request_id
+    and assigned_driver_id = auth.uid()
+    and status in ('driver_assigned', 'heading_to_pickup')
+  for update;
+
   update public.distribution_requests
   set assigned_driver_id = null, status = 'approved'
   where id = target_request_id
     and assigned_driver_id = auth.uid()
-    and status = 'driver_assigned'
+    and status in ('driver_assigned', 'heading_to_pickup')
   returning * into released;
 
   if released.id is null then
@@ -305,7 +322,7 @@ begin
   end if;
 
   insert into public.delivery_events (request_id, actor_id, event_type, from_status, to_status)
-  values (released.id, auth.uid(), 'unclaimed', 'driver_assigned', 'approved');
+  values (released.id, auth.uid(), 'unclaimed', previous_status, 'approved');
 
   return released;
 end;

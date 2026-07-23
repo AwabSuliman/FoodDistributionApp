@@ -52,6 +52,22 @@ export type DriverApplicationDecision = "approved" | "denied";
 
 export type DriverApplicationInput = PendingDriver;
 
+export type RequestEditInput = {
+  address: string;
+  boxWeightLbs: number;
+  email: string;
+  householdSize: number;
+  instructions: string;
+  phone: string;
+  recipient: string;
+};
+
+export type SeasonInput = {
+  endsOn?: string;
+  name: string;
+  startsOn?: string;
+};
+
 export type FamilySizeRow = {
   size: string;
   approved: number;
@@ -66,5 +82,6 @@ export type DashboardData = {
   deniedDrivers: PendingDriver[];
   familySizeRows: FamilySizeRow[];
   pendingDrivers: PendingDriver[];
+  requestHistory?: DistributionRequest[];
   requests: DistributionRequest[];
 };
