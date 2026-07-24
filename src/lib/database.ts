@@ -4,6 +4,7 @@ import type { AuthProfile } from "./auth";
 import { createSupabaseServerClient } from "./auth";
 import type {
   DashboardData,
+  DeliveryActivity,
   DistributionRequest,
   DriverApplicationDecision,
   DriverApplicationInput,
@@ -16,6 +17,7 @@ import type {
   Season,
 } from "./types";
 import { PublicError } from "./errors";
+import { makeDeliveryActivity } from "./delivery-activity";
 
 type RequestInput = {
   address: string;
@@ -58,6 +60,17 @@ type SeasonRow = {
   is_active: boolean;
   name: string;
   starts_on: string | null;
+};
+
+type DeliveryEventRow = {
+  actor_id: string | null;
+  created_at: string;
+  event_type: string;
+  from_status: DatabaseRequestStatus | null;
+  id: number;
+  notes: string | null;
+  request_id: string;
+  to_status: DatabaseRequestStatus | null;
 };
 
 type DatabaseRequestStatus =
@@ -150,10 +163,15 @@ function toSeason(row: SeasonRow): Season {
   };
 }
 
-function toRequest(row: RequestRow, driverNames: Map<string, string>): DistributionRequest {
+function toRequest(
+  row: RequestRow,
+  driverNames: Map<string, string>,
+  activitiesByRequest: Map<string, DeliveryActivity[]>,
+): DistributionRequest {
   return {
     address: row.address,
     boxWeight: `${row.box_weight_lbs} lb`,
+    deliveryActivity: activitiesByRequest.get(row.id) ?? [],
     driver: row.assigned_driver_id ? driverNames.get(row.assigned_driver_id) : undefined,
     email: row.email,
     householdSize: row.household_size,
@@ -165,6 +183,27 @@ function toRequest(row: RequestRow, driverNames: Map<string, string>): Distribut
     status: fromDatabaseStatus[row.status],
     updated: relativeTime(row.updated_at),
   };
+}
+
+function groupDeliveryActivity(rows: DeliveryEventRow[], driverNames: Map<string, string>) {
+  const activities = new Map<string, DeliveryActivity[]>();
+
+  rows.forEach((row) => {
+    const activity = makeDeliveryActivity({
+      actorName: row.actor_id ? driverNames.get(row.actor_id) : undefined,
+      assignedDriverName: row.event_type === "assigned" && row.notes ? driverNames.get(row.notes) : undefined,
+      eventType: row.event_type,
+      fromStatus: row.from_status ? fromDatabaseStatus[row.from_status] : undefined,
+      id: String(row.id),
+      occurred: relativeTime(row.created_at),
+      toStatus: row.to_status ? fromDatabaseStatus[row.to_status] : undefined,
+    });
+    const requestActivities = activities.get(row.request_id) ?? [];
+    requestActivities.push(activity);
+    activities.set(row.request_id, requestActivities);
+  });
+
+  return activities;
 }
 
 function familyGroupForSize(householdSize: number) {
@@ -188,26 +227,32 @@ function makeFamilySizeRows(requests: DistributionRequest[]): FamilySizeRow[] {
 
 export async function getDatabaseDashboardData(profile: AuthProfile): Promise<DashboardData> {
   const supabase = await createSupabaseServerClient();
-  const [seasonResult, driversResult, requestsResult] = await Promise.all([
+  const [seasonResult, driversResult, requestsResult, eventsResult] = await Promise.all([
     supabase.from("seasons").select("id,name,starts_on,ends_on,is_active").eq("is_active", true).maybeSingle(),
     supabase.from("driver_applications").select("user_id,name,phone,email,status").order("created_at", { ascending: false }),
     supabase.from("distribution_requests").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("delivery_events")
+      .select("id,request_id,actor_id,event_type,from_status,to_status,notes,created_at")
+      .order("created_at", { ascending: true }),
   ]);
 
   throwDatabaseError(seasonResult.error, "Unable to load the active season.");
   throwDatabaseError(driversResult.error, "Unable to load drivers.");
   throwDatabaseError(requestsResult.error, "Unable to load requests.");
+  throwDatabaseError(eventsResult.error, "Unable to load delivery activity.");
 
   const drivers = (driversResult.data ?? []) as DriverRow[];
   const driverNames = new Map(drivers.map((driver) => [driver.user_id, driver.name]));
   const requestRows = (requestsResult.data ?? []) as RequestRow[];
+  const activitiesByRequest = groupDeliveryActivity((eventsResult.data ?? []) as DeliveryEventRow[], driverNames);
   const activeSeasonId = (seasonResult.data as SeasonRow | null)?.id;
   const requests = requestRows
     .filter((request) => Boolean(activeSeasonId) && request.season_id === activeSeasonId)
-    .map((request) => toRequest(request, driverNames));
+    .map((request) => toRequest(request, driverNames, activitiesByRequest));
   const requestHistory = requestRows
     .filter((request) => !activeSeasonId || request.season_id !== activeSeasonId)
-    .map((request) => toRequest(request, driverNames));
+    .map((request) => toRequest(request, driverNames, activitiesByRequest));
   const ownApplication = drivers.find((driver) => driver.user_id === profile.userId);
 
   return {

@@ -791,6 +791,25 @@ function RequestTimeline({ request }: { request?: DistributionRequest }) {
         </li>
       ))}
       </ol>
+      {request.deliveryActivity && request.deliveryActivity.length > 0 && (
+        <div className="border-t border-[#dfe5e1] pt-4">
+          <h3 className="text-sm font-bold text-[#26312f]">Recent delivery activity</h3>
+          <ol className="mt-3 grid gap-3">
+            {request.deliveryActivity.map((activity) => (
+              <li className="grid grid-cols-[10px_1fr] gap-3" key={activity.id}>
+                <span aria-hidden="true" className="mt-1.5 h-2.5 w-2.5 rounded-full bg-[#1f5d54]" />
+                <div>
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-bold text-[#26312f]">{activity.title}</p>
+                    <p className="text-xs font-semibold text-[#66736f]">{activity.occurred}</p>
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-[#53645f]">{activity.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

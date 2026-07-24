@@ -12,6 +12,13 @@ export type RequestStatus =
   | "Not delivered"
   | "Denied";
 
+export type DeliveryActivity = {
+  detail: string;
+  id: string;
+  occurred: string;
+  title: string;
+};
+
 export type DistributionRequest = {
   id: string;
   recordId?: string;
@@ -24,6 +31,7 @@ export type DistributionRequest = {
   instructions: string;
   status: RequestStatus;
   driver?: string;
+  deliveryActivity?: DeliveryActivity[];
   updated: string;
 };
 
