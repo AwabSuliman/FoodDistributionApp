@@ -15,6 +15,7 @@ import type {
   SeasonInput,
   Season,
 } from "./types";
+import { PublicError } from "./errors";
 
 type RequestInput = {
   address: string;
@@ -107,14 +108,18 @@ const activeStatuses: RequestStatus[] = [
   "Not delivered",
 ];
 
-function throwDatabaseError(error: { code?: string; message: string } | null, fallback: string): never | void {
+function throwDatabaseError(
+  error: { code?: string; message: string } | null,
+  fallback: string,
+  duplicateMessage = fallback,
+): never | void {
   if (!error) return;
 
   if (error.code === "23505") {
-    throw new Error("This family already has a request for the active season.");
+    throw new PublicError(duplicateMessage);
   }
 
-  throw new Error(error.message || fallback);
+  throw new PublicError(fallback);
 }
 
 function relativeTime(value: string) {
@@ -226,7 +231,7 @@ export async function createDatabaseRequest(profile: AuthProfile, input: Request
     .maybeSingle();
 
   throwDatabaseError(seasonError, "Unable to load the active season.");
-  if (!season) throw new Error("Requests are closed because there is no active distribution season.");
+  if (!season) throw new PublicError("Requests are closed because there is no active distribution season.");
 
   const { error } = await supabase.from("distribution_requests").insert({
     address: input.address,
@@ -240,7 +245,7 @@ export async function createDatabaseRequest(profile: AuthProfile, input: Request
     season_id: season.id,
   });
 
-  throwDatabaseError(error, "Unable to submit the request.");
+  throwDatabaseError(error, "Unable to submit the request.", "This family already has a request for the active season.");
 }
 
 export async function setDatabaseRequestStatus(id: string, status: RequestStatus) {
@@ -258,7 +263,7 @@ export async function setDatabaseRequestStatus(id: string, status: RequestStatus
     .select("id")
     .maybeSingle();
   throwDatabaseError(error, "Unable to update the request.");
-  if (!data) throw new Error("This request has already moved to another status.");
+  if (!data) throw new PublicError("This request has already moved to another status.");
 }
 
 export async function updateDatabaseRequestDetails(id: string, input: RequestEditInput) {
@@ -279,7 +284,7 @@ export async function updateDatabaseRequestDetails(id: string, input: RequestEdi
     .select("id")
     .maybeSingle();
   throwDatabaseError(error, "Unable to update the request details.");
-  if (!data) throw new Error("Only submitted requests can be edited.");
+  if (!data) throw new PublicError("Only submitted requests can be edited.");
 }
 
 export async function activateDatabaseSeason(input: SeasonInput) {
@@ -333,7 +338,11 @@ export async function createDatabaseDriverApplication(profile: AuthProfile, inpu
     : await supabase.from("driver_applications").insert(payload);
 
   const { error } = result;
-  throwDatabaseError(error, "Unable to submit the driver application.");
+  throwDatabaseError(
+    error,
+    "Unable to submit the driver application.",
+    "A driver application already exists for this email.",
+  );
 }
 
 export async function resolveDatabaseDriverApplication(email: string, decision: DriverApplicationDecision) {

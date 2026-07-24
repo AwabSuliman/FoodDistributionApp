@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient, getSupabaseConfig, profileFromClaims } from "@/lib/auth";
+import { PublicError } from "@/lib/errors";
 import type { Role } from "@/lib/types";
 
 function roleCanAccess(actualRole: Role, allowedRoles: Role[]) {
@@ -16,13 +17,13 @@ export async function requireAuthenticatedRole(allowedRoles: Role[]) {
   const { data, error } = await supabase.auth.getClaims();
 
   if (error || !data?.claims) {
-    throw new Error("You must be signed in to continue.");
+    throw new PublicError("You must be signed in to continue.");
   }
 
   const profile = profileFromClaims(data.claims);
 
   if (!roleCanAccess(profile.role, allowedRoles)) {
-    throw new Error("You do not have permission to perform this action.");
+    throw new PublicError("You do not have permission to perform this action.");
   }
 
   return profile;
@@ -42,7 +43,7 @@ export async function requireApprovedDriverOrAdmin() {
     .maybeSingle();
 
   if (error || !data) {
-    throw new Error("Your driver application must be approved before you can manage deliveries.");
+    throw new PublicError("Your driver application must be approved before you can manage deliveries.");
   }
 
   return profile;

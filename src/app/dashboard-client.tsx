@@ -12,6 +12,7 @@ import {
   updateDeliveryStatus,
   updateRequestStatus,
 } from "./actions";
+import type { DashboardActionResult } from "./actions";
 import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
 import type { DashboardData, DistributionRequest, RequestStatus, Role } from "@/lib/types";
@@ -593,7 +594,7 @@ function ActionButton({
   label,
   primary = false,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => Promise<DashboardActionResult>;
   label: string;
   primary?: boolean;
 }) {
@@ -617,7 +618,7 @@ function ActionForm({
   className,
   successMessage,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => Promise<DashboardActionResult>;
   children: React.ReactNode;
   className?: string;
   successMessage: string;
@@ -630,10 +631,14 @@ function ActionForm({
     setState(null);
 
     try {
-      await action(formData);
-      setState({ message: successMessage, tone: "success" });
-    } catch (error) {
-      setState({ message: error instanceof Error ? error.message : "Something went wrong.", tone: "error" });
+      const result = await action(formData);
+      setState(
+        result.ok
+          ? { message: successMessage, tone: "success" }
+          : { message: result.error, tone: "error" },
+      );
+    } catch {
+      setState({ message: "Something went wrong. Please try again.", tone: "error" });
     } finally {
       setPending(false);
     }
@@ -641,9 +646,12 @@ function ActionForm({
 
   return (
     <form action={formAction} className={className}>
-      {children}
+      <fieldset className="contents" disabled={pending}>
+        {children}
+      </fieldset>
       {(pending || state) && (
         <p
+          aria-live="polite"
           className={`rounded-md border px-3 py-2 text-sm font-semibold ${
             state?.tone === "error"
               ? "border-rose-200 bg-rose-50 text-rose-800"

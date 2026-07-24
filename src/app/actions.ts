@@ -14,7 +14,10 @@ import {
   unclaimRequest,
   updateRequestDetails,
 } from "@/lib/data";
+import { PublicError, publicErrorMessage } from "@/lib/errors";
 import type { DriverApplicationDecision, RequestStatus } from "@/lib/types";
+
+export type DashboardActionResult = { error: string; ok: false } | { ok: true };
 
 const editableStatuses = new Set<RequestStatus>(["Under review", "Approved", "Denied"]);
 const deliveryStatuses = new Set<RequestStatus>([
@@ -31,11 +34,21 @@ function revalidateDashboards() {
   revalidatePath("/dashboard");
 }
 
+async function runDashboardAction(action: () => Promise<void>): Promise<DashboardActionResult> {
+  try {
+    await action();
+    revalidateDashboards();
+    return { ok: true };
+  } catch (error) {
+    return { error: publicErrorMessage(error), ok: false };
+  }
+}
+
 function readRequiredText(formData: FormData, field: string) {
   const value = formData.get(field);
 
   if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${field} is required.`);
+    throw new PublicError(`${field} is required.`);
   }
 
   return value.trim();
@@ -43,130 +56,142 @@ function readRequiredText(formData: FormData, field: string) {
 
 function validateEmail(email: string) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error("Enter a valid email address.");
+    throw new PublicError("Enter a valid email address.");
   }
 }
 
-export async function submitRequest(formData: FormData) {
-  const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+export async function submitRequest(formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+    const householdSize = Number(readRequiredText(formData, "householdSize"));
+    const email = readRequiredText(formData, "email");
 
-  const householdSize = Number(readRequiredText(formData, "householdSize"));
-  const email = readRequiredText(formData, "email");
+    if (!Number.isInteger(householdSize) || householdSize < 1) {
+      throw new PublicError("Household size must be at least 1.");
+    }
 
-  if (!Number.isInteger(householdSize) || householdSize < 1) {
-    throw new Error("Household size must be at least 1.");
-  }
+    validateEmail(email);
 
-  validateEmail(email);
-
-  await createRequest(profile, {
-    address: readRequiredText(formData, "address"),
-    email,
-    householdSize,
-    instructions: readRequiredText(formData, "instructions"),
-    phone: readRequiredText(formData, "phone"),
-    recipient: readRequiredText(formData, "recipient"),
+    await createRequest(profile, {
+      address: readRequiredText(formData, "address"),
+      email,
+      householdSize,
+      instructions: readRequiredText(formData, "instructions"),
+      phone: readRequiredText(formData, "phone"),
+      recipient: readRequiredText(formData, "recipient"),
+    });
   });
-
-  revalidateDashboards();
 }
 
-export async function updateRequestStatus(id: string, status: RequestStatus) {
-  await requireAuthenticatedRole(["admin"]);
+export async function updateRequestStatus(id: string, status: RequestStatus): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
 
-  if (!editableStatuses.has(status)) {
-    throw new Error("Unsupported request status.");
-  }
+    if (!editableStatuses.has(status)) {
+      throw new PublicError("Unsupported request status.");
+    }
 
-  await setRequestStatus(id, status);
-  revalidateDashboards();
-}
-
-export async function editRequest(id: string, formData: FormData) {
-  await requireAuthenticatedRole(["admin"]);
-
-  const householdSize = Number(readRequiredText(formData, "householdSize"));
-  const boxWeightLbs = Number(readRequiredText(formData, "boxWeightLbs"));
-  const email = readRequiredText(formData, "email");
-
-  if (!Number.isInteger(householdSize) || householdSize < 1) throw new Error("Household size must be at least 1.");
-  if (!Number.isInteger(boxWeightLbs) || boxWeightLbs < 1) throw new Error("Box weight must be at least 1 lb.");
-  validateEmail(email);
-
-  await updateRequestDetails(id, {
-    address: readRequiredText(formData, "address"),
-    boxWeightLbs,
-    email,
-    householdSize,
-    instructions: readRequiredText(formData, "instructions"),
-    phone: readRequiredText(formData, "phone"),
-    recipient: readRequiredText(formData, "recipient"),
+    await setRequestStatus(id, status);
   });
-  revalidateDashboards();
 }
 
-export async function createSeason(formData: FormData) {
-  await requireAuthenticatedRole(["admin"]);
-  const startsOn = readRequiredText(formData, "startsOn");
-  const endsOn = readRequiredText(formData, "endsOn");
+export async function editRequest(id: string, formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
 
-  if (endsOn < startsOn) throw new Error("Season end date must be after its start date.");
+    const householdSize = Number(readRequiredText(formData, "householdSize"));
+    const boxWeightLbs = Number(readRequiredText(formData, "boxWeightLbs"));
+    const email = readRequiredText(formData, "email");
 
-  await activateSeason({ endsOn, name: readRequiredText(formData, "name"), startsOn });
-  revalidateDashboards();
-}
+    if (!Number.isInteger(householdSize) || householdSize < 1) {
+      throw new PublicError("Household size must be at least 1.");
+    }
+    if (!Number.isInteger(boxWeightLbs) || boxWeightLbs < 1) {
+      throw new PublicError("Box weight must be at least 1 lb.");
+    }
+    validateEmail(email);
 
-export async function updateDeliveryStatus(id: string, status: RequestStatus) {
-  await requireApprovedDriverOrAdmin();
-
-  if (!deliveryStatuses.has(status)) {
-    throw new Error("Unsupported delivery status.");
-  }
-
-  await setDeliveryStatus(id, status);
-  revalidateDashboards();
-}
-
-export async function claimDelivery(id: string, formData: FormData) {
-  const profile = await requireApprovedDriverOrAdmin();
-
-  if (profile?.role === "admin") {
-    await assignRequest(id, readRequiredText(formData, "driver"));
-  } else {
-    await claimRequest(id, profile?.name);
-  }
-  revalidateDashboards();
-}
-
-export async function unclaimDelivery(id: string) {
-  await requireApprovedDriverOrAdmin();
-  await unclaimRequest(id);
-  revalidateDashboards();
-}
-
-export async function submitDriverApplication(formData: FormData) {
-  const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
-
-  const email = readRequiredText(formData, "email");
-
-  validateEmail(email);
-
-  await createDriverApplication(profile, {
-    email,
-    name: readRequiredText(formData, "name"),
-    phone: readRequiredText(formData, "phone"),
+    await updateRequestDetails(id, {
+      address: readRequiredText(formData, "address"),
+      boxWeightLbs,
+      email,
+      householdSize,
+      instructions: readRequiredText(formData, "instructions"),
+      phone: readRequiredText(formData, "phone"),
+      recipient: readRequiredText(formData, "recipient"),
+    });
   });
-
-  revalidateDashboards();
 }
 
-export async function resolveDriverApplication(email: string, decision: DriverApplicationDecision) {
-  await requireAuthenticatedRole(["admin"]);
+export async function createSeason(formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+    const startsOn = readRequiredText(formData, "startsOn");
+    const endsOn = readRequiredText(formData, "endsOn");
 
-  if (!driverApplicationDecisions.has(decision)) {
-    throw new Error("Unsupported driver application decision.");
-  }
+    if (endsOn < startsOn) throw new PublicError("Season end date must be after its start date.");
 
-  await resolvePendingDriver(email, decision);
-  revalidateDashboards();
+    await activateSeason({ endsOn, name: readRequiredText(formData, "name"), startsOn });
+  });
+}
+
+export async function updateDeliveryStatus(id: string, status: RequestStatus): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireApprovedDriverOrAdmin();
+
+    if (!deliveryStatuses.has(status)) {
+      throw new PublicError("Unsupported delivery status.");
+    }
+
+    await setDeliveryStatus(id, status);
+  });
+}
+
+export async function claimDelivery(id: string, formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    const profile = await requireApprovedDriverOrAdmin();
+
+    if (profile?.role === "admin") {
+      await assignRequest(id, readRequiredText(formData, "driver"));
+    } else {
+      await claimRequest(id, profile?.name);
+    }
+  });
+}
+
+export async function unclaimDelivery(id: string): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireApprovedDriverOrAdmin();
+    await unclaimRequest(id);
+  });
+}
+
+export async function submitDriverApplication(formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+    const email = readRequiredText(formData, "email");
+
+    validateEmail(email);
+
+    await createDriverApplication(profile, {
+      email,
+      name: readRequiredText(formData, "name"),
+      phone: readRequiredText(formData, "phone"),
+    });
+  });
+}
+
+export async function resolveDriverApplication(
+  email: string,
+  decision: DriverApplicationDecision,
+): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+
+    if (!driverApplicationDecisions.has(decision)) {
+      throw new PublicError("Unsupported driver application decision.");
+    }
+
+    await resolvePendingDriver(email, decision);
+  });
 }

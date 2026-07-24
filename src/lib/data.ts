@@ -25,6 +25,7 @@ import {
   updateRequestDetails as updateFileRequestDetails,
 } from "./store";
 import type { DriverApplicationDecision, DriverApplicationInput, RequestEditInput, RequestStatus, SeasonInput } from "./types";
+import { PublicError } from "./errors";
 
 type RequestInput = Parameters<typeof createFileRequest>[0];
 
@@ -35,7 +36,7 @@ export async function getDashboardData(profile: AuthProfile | null) {
 
 export async function createRequest(profile: AuthProfile | null, input: RequestInput) {
   if (getSupabaseConfig()) {
-    if (!profile) throw new Error("You must be signed in to submit a request.");
+    if (!profile) throw new PublicError("You must be signed in to submit a request.");
     return createDatabaseRequest(profile, input);
   }
   return createFileRequest(input);
@@ -52,7 +53,7 @@ export async function updateRequestDetails(id: string, input: RequestEditInput) 
 }
 
 export async function activateSeason(input: SeasonInput) {
-  if (!getSupabaseConfig()) throw new Error("Connect Supabase before managing distribution seasons.");
+  if (!getSupabaseConfig()) throw new PublicError("Connect Supabase before managing distribution seasons.");
   return activateDatabaseSeason(input);
 }
 
@@ -78,7 +79,7 @@ export async function setDeliveryStatus(id: string, status: RequestStatus) {
 
 export async function createDriverApplication(profile: AuthProfile | null, input: DriverApplicationInput) {
   if (getSupabaseConfig()) {
-    if (!profile) throw new Error("You must be signed in to apply as a driver.");
+    if (!profile) throw new PublicError("You must be signed in to apply as a driver.");
     return createDatabaseDriverApplication(profile, input);
   }
   return createFileDriverApplication(input);

@@ -10,6 +10,7 @@ import type {
   RequestEditInput,
   RequestStatus,
 } from "./types";
+import { PublicError } from "./errors";
 
 type AppState = {
   approvedDrivers: PendingDriver[];
@@ -205,7 +206,7 @@ export async function createRequest(input: RequestInput) {
   const state = await readState();
 
   if (hasOpenRequestForFamily(state.requests, input)) {
-    throw new Error("This family already has an open request.");
+    throw new PublicError("This family already has an open request.");
   }
 
   const id = `MWI-${state.nextRequestNumber}`;
@@ -292,7 +293,7 @@ export async function createDriverApplication(input: DriverApplicationInput) {
   const allApplications = [...state.pendingDrivers, ...state.approvedDrivers];
 
   if (allApplications.some((driver) => normalizeComparable(driver.email) === email)) {
-    throw new Error("This driver application already exists.");
+    throw new PublicError("This driver application already exists.");
   }
 
   await writeState({
