@@ -8,6 +8,10 @@ export type SignUpInput = SignInInput & {
   role: "driver" | "recipient";
 };
 
+export type PasswordUpdateInput = {
+  password: string;
+};
+
 export type AuthInputResult<T> = { data: T; ok: true } | { error: string; ok: false };
 
 function readText(formData: FormData, field: string) {
@@ -52,7 +56,22 @@ export function parseSignUpInput(formData: FormData): AuthInputResult<SignUpInpu
   return { data: { ...signInInput.data, name, role }, ok: true };
 }
 
-export function authErrorMessage(message: string, action: "signin" | "signup") {
+export function parsePasswordResetRequest(formData: FormData): AuthInputResult<{ email: string }> {
+  const email = readEmail(formData);
+  return email.ok ? { data: { email: email.data }, ok: true } : email;
+}
+
+export function parsePasswordUpdateInput(formData: FormData): AuthInputResult<PasswordUpdateInput> {
+  const password = readText(formData, "password");
+  const confirmation = readText(formData, "passwordConfirmation");
+
+  if (password.length < 8) return { error: "Use at least 8 characters for your password.", ok: false };
+  if (password !== confirmation) return { error: "Passwords do not match.", ok: false };
+
+  return { data: { password }, ok: true };
+}
+
+export function authErrorMessage(message: string, action: "reset" | "signin" | "signup") {
   const normalizedMessage = message.toLowerCase();
 
   if (normalizedMessage.includes("invalid login credentials")) return "Incorrect email or password.";
@@ -60,7 +79,7 @@ export function authErrorMessage(message: string, action: "signin" | "signup") {
   if (normalizedMessage.includes("user already registered")) return "An account already exists for this email.";
   if (normalizedMessage.includes("rate limit")) return "Too many attempts. Wait a moment and try again.";
 
-  return action === "signin"
-    ? "Unable to sign in right now. Please try again."
-    : "Unable to create your account right now. Please try again.";
+  if (action === "signin") return "Unable to sign in right now. Please try again.";
+  if (action === "signup") return "Unable to create your account right now. Please try again.";
+  return "Unable to reset your password right now. Please try again.";
 }

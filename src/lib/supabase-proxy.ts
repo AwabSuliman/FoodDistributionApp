@@ -26,7 +26,10 @@ export async function updateSupabaseSession(request: NextRequest) {
 
   const { data, error } = await supabase.auth.getClaims();
   const isAuthPage = request.nextUrl.pathname.startsWith("/login");
-  const isProtectedPage = request.nextUrl.pathname === "/" || request.nextUrl.pathname.startsWith("/dashboard");
+  const isProtectedPage =
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/dashboard") ||
+    request.nextUrl.pathname.startsWith("/reset-password");
 
   if (isProtectedPage && (error || !data?.claims)) {
     const url = request.nextUrl.clone();

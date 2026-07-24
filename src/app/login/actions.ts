@@ -3,7 +3,12 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, getSiteUrl, getSupabaseConfig, safeRedirectPath } from "@/lib/auth";
-import { authErrorMessage, parseSignInInput, parseSignUpInput } from "@/lib/auth-input";
+import {
+  authErrorMessage,
+  parsePasswordResetRequest,
+  parseSignInInput,
+  parseSignUpInput,
+} from "@/lib/auth-input";
 
 export type AuthFormState = {
   error?: string;
@@ -80,6 +85,34 @@ export async function signUp(_state: AuthFormState, formData: FormData): Promise
   }
 
   return { message: "Account created. Check your email to confirm your sign-in." };
+}
+
+export async function requestPasswordReset(_state: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const configError = requireSupabaseConfig();
+
+  if (configError) {
+    return configError;
+  }
+
+  const input = parsePasswordResetRequest(formData);
+
+  if (!input.ok) {
+    return { error: input.error };
+  }
+
+  const headersList = await headers();
+  const callbackUrl = new URL("/auth/callback", getSiteUrl(headersList.get("origin") ?? undefined));
+  callbackUrl.searchParams.set("next", "/reset-password");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(input.data.email, {
+    redirectTo: callbackUrl.toString(),
+  });
+
+  if (error) {
+    return { error: authErrorMessage(error.message, "reset") };
+  }
+
+  return { message: "If an account exists for that email, a password reset link is on the way." };
 }
 
 export async function signOut() {

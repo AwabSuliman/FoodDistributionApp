@@ -10,6 +10,7 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 - Drivers can apply to volunteer, select an approved driver profile, claim available deliveries, and update delivery status.
 - The dashboard tracks requests by operational state, family size, approved drivers, denied drivers, and pending driver applications.
 - Supabase authentication protects the dashboard when Supabase environment variables are configured.
+- Users can request a secure password reset link and choose a new password through the Supabase recovery flow.
 
 ## Tech Stack
 
@@ -43,13 +44,13 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-Apply `supabase/migrations/202607230001_initial_schema.sql` to the Supabase project. With the Supabase CLI linked to the project, run:
+Apply every migration in `supabase/migrations` to the Supabase project. With the Supabase CLI linked to the project, run:
 
 ```bash
 supabase db push
 ```
 
-The same migration can be pasted into the Supabase SQL Editor when the CLI is unavailable. It creates the active season, request and driver tables, audit events, row-level security policies, and atomic delivery workflow functions.
+The migration files can be applied in timestamp order through the Supabase SQL Editor when the CLI is unavailable. They create the active season, request and driver tables, audit events, row-level security policies, atomic delivery workflow functions, and database access hardening.
 
 In Supabase Auth URL Configuration, set the Site URL and add this redirect URL:
 

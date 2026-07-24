@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { authErrorMessage, parseSignInInput, parseSignUpInput } from "../src/lib/auth-input.ts";
+import {
+  authErrorMessage,
+  parsePasswordResetRequest,
+  parsePasswordUpdateInput,
+  parseSignInInput,
+  parseSignUpInput,
+} from "../src/lib/auth-input.ts";
 
 function makeFormData(values: Record<string, string>) {
   const formData = new FormData();
@@ -41,4 +47,27 @@ test("auth service errors are converted to user-friendly messages", () => {
     authErrorMessage("Unexpected provider detail", "signup"),
     "Unable to create your account right now. Please try again.",
   );
+});
+
+test("password reset requests normalize email without revealing account state", () => {
+  assert.deepEqual(parsePasswordResetRequest(makeFormData({ email: " STAFF@EXAMPLE.ORG " })), {
+    data: { email: "staff@example.org" },
+    ok: true,
+  });
+  assert.deepEqual(parsePasswordResetRequest(makeFormData({ email: "not-an-email" })), {
+    error: "Enter a valid email address.",
+    ok: false,
+  });
+});
+
+test("password updates require a strong matching confirmation", () => {
+  const mismatch = parsePasswordUpdateInput(
+    makeFormData({ password: "newpassword", passwordConfirmation: "differentpassword" }),
+  );
+  const valid = parsePasswordUpdateInput(
+    makeFormData({ password: "newpassword", passwordConfirmation: "newpassword" }),
+  );
+
+  assert.deepEqual(mismatch, { error: "Passwords do not match.", ok: false });
+  assert.deepEqual(valid, { data: { password: "newpassword" }, ok: true });
 });

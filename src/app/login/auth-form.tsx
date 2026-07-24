@@ -1,16 +1,18 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { signIn, signUp, type AuthFormState } from "./actions";
+import { requestPasswordReset, signIn, signUp, type AuthFormState } from "./actions";
 
 const initialState: AuthFormState = {};
 
 export function AuthForm({ nextPath }: { nextPath: string }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"forgot" | "signin" | "signup">("signin");
   const [signInState, signInAction, signInPending] = useActionState(signIn, initialState);
   const [signUpState, signUpAction, signUpPending] = useActionState(signUp, initialState);
-  const state = mode === "signin" ? signInState : signUpState;
-  const pending = mode === "signin" ? signInPending : signUpPending;
+  const [resetState, resetAction, resetPending] = useActionState(requestPasswordReset, initialState);
+  const state = mode === "signin" ? signInState : mode === "signup" ? signUpState : resetState;
+  const pending = mode === "signin" ? signInPending : mode === "signup" ? signUpPending : resetPending;
+  const formAction = mode === "signin" ? signInAction : mode === "signup" ? signUpAction : resetAction;
 
   return (
     <div className="mx-auto grid w-full max-w-md gap-5">
@@ -31,8 +33,10 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
         </button>
       </div>
 
-      <form action={mode === "signin" ? signInAction : signUpAction} className="grid gap-4 rounded-lg border border-[#d8ded7] bg-white p-5 shadow-sm">
+      <form action={formAction} className="grid gap-4 rounded-lg border border-[#d8ded7] bg-white p-5 shadow-sm">
         <input name="next" type="hidden" value={nextPath} />
+
+        {mode === "forgot" && <h2 className="text-lg font-bold text-[#17201f]">Reset password</h2>}
 
         {mode === "signup" && (
           <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
@@ -56,16 +60,28 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
-          Password
-          <input
-            className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
-            minLength={mode === "signup" ? 8 : undefined}
-            name="password"
-            required
-            type="password"
-          />
-        </label>
+        {mode !== "forgot" && (
+          <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+            Password
+            <input
+              className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+              minLength={mode === "signup" ? 8 : undefined}
+              name="password"
+              required
+              type="password"
+            />
+          </label>
+        )}
+
+        {mode === "signin" && (
+          <button
+            className="justify-self-start text-sm font-bold text-[#1f5d54]"
+            onClick={() => setMode("forgot")}
+            type="button"
+          >
+            Forgot password?
+          </button>
+        )}
 
         {mode === "signup" && (
           <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
@@ -93,8 +109,14 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
           disabled={pending}
           type="submit"
         >
-          {pending ? "Working..." : mode === "signin" ? "Sign in" : "Create account"}
+          {pending ? "Working..." : mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
         </button>
+
+        {mode === "forgot" && (
+          <button className="text-sm font-bold text-[#1f5d54]" onClick={() => setMode("signin")} type="button">
+            Back to sign in
+          </button>
+        )}
       </form>
     </div>
   );
