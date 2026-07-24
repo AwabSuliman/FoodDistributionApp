@@ -3,28 +3,12 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, getSiteUrl, getSupabaseConfig, safeRedirectPath } from "@/lib/auth";
-import type { Role } from "@/lib/types";
+import { authErrorMessage, parseSignInInput, parseSignUpInput } from "@/lib/auth-input";
 
 export type AuthFormState = {
   error?: string;
   message?: string;
 };
-
-function readText(formData: FormData, field: string) {
-  const value = formData.get(field);
-
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${field} is required.`);
-  }
-
-  return value.trim();
-}
-
-function readRole(formData: FormData): Role {
-  const role = formData.get("role");
-
-  return role === "driver" ? "driver" : "recipient";
-}
 
 function requireSupabaseConfig(): AuthFormState | null {
   return getSupabaseConfig()
@@ -41,14 +25,17 @@ export async function signIn(_state: AuthFormState, formData: FormData): Promise
     return configError;
   }
 
+  const input = parseSignInInput(formData);
+
+  if (!input.ok) {
+    return { error: input.error };
+  }
+
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({
-    email: readText(formData, "email"),
-    password: readText(formData, "password"),
-  });
+  const { error } = await supabase.auth.signInWithPassword(input.data);
 
   if (error) {
-    return { error: error.message };
+    return { error: authErrorMessage(error.message, "signin") };
   }
 
   redirect(safeRedirectPath(formData.get("next")));
@@ -61,26 +48,31 @@ export async function signUp(_state: AuthFormState, formData: FormData): Promise
     return configError;
   }
 
-  const role = readRole(formData);
+  const input = parseSignUpInput(formData);
+
+  if (!input.ok) {
+    return { error: input.error };
+  }
+
   const next = safeRedirectPath(formData.get("next"));
   const headersList = await headers();
   const callbackUrl = new URL("/auth/callback", getSiteUrl(headersList.get("origin") ?? undefined));
   callbackUrl.searchParams.set("next", next);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
-    email: readText(formData, "email"),
+    email: input.data.email,
     options: {
       data: {
-        name: readText(formData, "name"),
-        role,
+        name: input.data.name,
+        role: input.data.role,
       },
       emailRedirectTo: callbackUrl.toString(),
     },
-    password: readText(formData, "password"),
+    password: input.data.password,
   });
 
   if (error) {
-    return { error: error.message };
+    return { error: authErrorMessage(error.message, "signup") };
   }
 
   if (data.session) {

@@ -60,7 +60,7 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
           Password
           <input
             className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
-            minLength={6}
+            minLength={mode === "signup" ? 8 : undefined}
             name="password"
             required
             type="password"
