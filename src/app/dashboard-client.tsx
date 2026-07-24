@@ -15,6 +15,7 @@ import {
 import type { DashboardActionResult } from "./actions";
 import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
+import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
 import type { DashboardData, DistributionRequest, RequestStatus, Role } from "@/lib/types";
 
 const roleOptions: { role: Role; label: string; helper: string }[] = [
@@ -236,6 +237,16 @@ function AdminView({
   }, [query, requests, statusFilter]);
   const selectedRequest = requests.find((request) => request.id === selectedRequestId);
 
+  function exportRequests() {
+    const blob = new Blob(["\uFEFF", requestsToCsv(filteredRequests)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = requestCsvFilename(activeSeason?.name);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <section className="grid gap-5">
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -248,7 +259,20 @@ function AdminView({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Panel title="Requests" kicker="Admin dashboard">
+        <Panel
+          title="Requests"
+          kicker="Admin dashboard"
+          action={
+            <button
+              className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm font-bold text-[#26312f] disabled:cursor-not-allowed disabled:text-[#8b9894]"
+              disabled={filteredRequests.length === 0}
+              onClick={exportRequests}
+              type="button"
+            >
+              Export CSV
+            </button>
+          }
+        >
           <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
             <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
               Search
