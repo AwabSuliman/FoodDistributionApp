@@ -16,8 +16,8 @@ import type { DashboardActionResult } from "./actions";
 import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
-import { canSubmitRecipientRequest } from "@/lib/request-access";
-import type { DashboardData, DistributionRequest, RequestStatus, Role } from "@/lib/types";
+import { canEditRequest, canSubmitRecipientRequest } from "@/lib/request-access";
+import type { DashboardData, DeliveryActivity, DistributionRequest, RequestStatus, Role } from "@/lib/types";
 
 const roleOptions: { role: Role; label: string; helper: string }[] = [
   { role: "recipient", label: "Recipient", helper: "Submit and track a request" },
@@ -250,6 +250,7 @@ function AdminView({
     });
   }, [query, requests, statusFilter]);
   const selectedRequest = requests.find((request) => request.id === selectedRequestId);
+  const selectedRequestCanBeEdited = selectedRequest ? canEditRequest(selectedRequest.status) : false;
 
   function exportRequests() {
     const blob = new Blob(["\uFEFF", requestsToCsv(filteredRequests)], { type: "text/csv;charset=utf-8" });
@@ -351,15 +352,13 @@ function AdminView({
                             <ActionButton action={updateRequestStatus.bind(null, request.recordId ?? request.id, "Denied")} label="Deny" />
                           </>
                         )}
-                        {(["Submitted", "Under review"] as RequestStatus[]).includes(request.status) && (
-                          <button
-                            className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-xs font-bold text-[#26312f]"
-                            onClick={() => setSelectedRequestId(request.id)}
-                            type="button"
-                          >
-                            Edit
-                          </button>
-                        )}
+                        <button
+                          className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-xs font-bold text-[#26312f]"
+                          onClick={() => setSelectedRequestId(request.id)}
+                          type="button"
+                        >
+                          {canEditRequest(request.status) ? "Edit" : "View"}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -376,7 +375,9 @@ function AdminView({
             <div className="mt-5 border-t border-[#dfe5e1] pt-5">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#66736f]">Edit before approval</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#66736f]">
+                    {selectedRequestCanBeEdited ? "Edit before approval" : "Request details"}
+                  </p>
                   <h3 className="mt-1 font-bold">{selectedRequest.id}</h3>
                 </div>
                 <button
@@ -387,28 +388,57 @@ function AdminView({
                   Close
                 </button>
               </div>
-              <ActionForm
-                action={editRequest.bind(null, selectedRequest.recordId ?? selectedRequest.id)}
-                className="grid gap-3 md:grid-cols-2"
-                successMessage="Request updated."
-              >
-                <Field label="Full name" name="recipient" value={selectedRequest.recipient} />
-                <Field label="Email" name="email" type="email" value={selectedRequest.email} />
-                <Field label="Telephone/cellphone" name="phone" value={selectedRequest.phone} />
-                <Field label="Address" name="address" value={selectedRequest.address} />
-                <Field label="Household members" name="householdSize" type="number" value={String(selectedRequest.householdSize)} />
-                <Field label="Box weight (lb)" name="boxWeightLbs" type="number" value={selectedRequest.boxWeight.replace(/\D/g, "")} />
-                <label className="grid gap-1.5 text-sm font-semibold text-[#26312f] md:col-span-2">
-                  Delivery instructions
-                  <textarea
-                    className="min-h-24 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal"
-                    defaultValue={selectedRequest.instructions}
-                    name="instructions"
-                    required
+              {selectedRequestCanBeEdited ? (
+                <ActionForm
+                  action={editRequest.bind(null, selectedRequest.recordId ?? selectedRequest.id)}
+                  className="grid gap-3 md:grid-cols-2"
+                  successMessage="Request updated."
+                >
+                  <Field label="Full name" name="recipient" value={selectedRequest.recipient} />
+                  <Field label="Email" name="email" type="email" value={selectedRequest.email} />
+                  <Field label="Telephone/cellphone" name="phone" value={selectedRequest.phone} />
+                  <Field label="Address" name="address" value={selectedRequest.address} />
+                  <Field
+                    label="Household members"
+                    name="householdSize"
+                    type="number"
+                    value={String(selectedRequest.householdSize)}
                   />
-                </label>
-                <div className="md:col-span-2"><SubmitButton label="Save request" /></div>
-              </ActionForm>
+                  <Field
+                    label="Box weight (lb)"
+                    name="boxWeightLbs"
+                    type="number"
+                    value={selectedRequest.boxWeight.replace(/\D/g, "")}
+                  />
+                  <label className="grid gap-1.5 text-sm font-semibold text-[#26312f] md:col-span-2">
+                    Delivery instructions
+                    <textarea
+                      className="min-h-24 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal"
+                      defaultValue={selectedRequest.instructions}
+                      name="instructions"
+                      required
+                    />
+                  </label>
+                  <div className="md:col-span-2">
+                    <SubmitButton label="Save request" />
+                  </div>
+                </ActionForm>
+              ) : (
+                <dl className="grid gap-4 rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-4 md:grid-cols-2">
+                  <Info label="Recipient" value={selectedRequest.recipient} />
+                  <Info label="Status" value={selectedRequest.status} />
+                  <Info label="Email" value={selectedRequest.email} />
+                  <Info label="Phone" value={selectedRequest.phone} />
+                  <Info label="Address" value={selectedRequest.address} />
+                  <Info label="Household" value={`${selectedRequest.householdSize} people`} />
+                  <Info label="Box weight" value={selectedRequest.boxWeight} />
+                  <Info label="Driver" value={selectedRequest.driver ?? "Unassigned"} />
+                  <div className="md:col-span-2">
+                    <Info label="Delivery instructions" value={selectedRequest.instructions} />
+                  </div>
+                </dl>
+              )}
+              <DeliveryActivityList activities={selectedRequest.deliveryActivity ?? []} showEmpty />
             </div>
           )}
         </Panel>
@@ -805,24 +835,40 @@ function RequestTimeline({ request }: { request?: DistributionRequest }) {
         </li>
       ))}
       </ol>
-      {request.deliveryActivity && request.deliveryActivity.length > 0 && (
-        <div className="border-t border-[#dfe5e1] pt-4">
-          <h3 className="text-sm font-bold text-[#26312f]">Recent delivery activity</h3>
-          <ol className="mt-3 grid gap-3">
-            {request.deliveryActivity.map((activity) => (
-              <li className="grid grid-cols-[10px_1fr] gap-3" key={activity.id}>
-                <span aria-hidden="true" className="mt-1.5 h-2.5 w-2.5 rounded-full bg-[#1f5d54]" />
-                <div>
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-sm font-bold text-[#26312f]">{activity.title}</p>
-                    <p className="text-xs font-semibold text-[#66736f]">{activity.occurred}</p>
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-[#53645f]">{activity.detail}</p>
+      <DeliveryActivityList activities={request.deliveryActivity ?? []} />
+    </div>
+  );
+}
+
+function DeliveryActivityList({
+  activities,
+  showEmpty = false,
+}: {
+  activities: DeliveryActivity[];
+  showEmpty?: boolean;
+}) {
+  if (activities.length === 0 && !showEmpty) return null;
+
+  return (
+    <div className="mt-4 border-t border-[#dfe5e1] pt-4">
+      <h3 className="text-sm font-bold text-[#26312f]">Recent delivery activity</h3>
+      {activities.length === 0 ? (
+        <p className="mt-3 text-sm font-semibold text-[#66736f]">No delivery activity has been recorded yet.</p>
+      ) : (
+        <ol className="mt-3 grid gap-3">
+          {activities.map((activity) => (
+            <li className="grid grid-cols-[10px_1fr] gap-3" key={activity.id}>
+              <span aria-hidden="true" className="mt-1.5 h-2.5 w-2.5 rounded-full bg-[#1f5d54]" />
+              <div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-bold text-[#26312f]">{activity.title}</p>
+                  <p className="text-xs font-semibold text-[#66736f]">{activity.occurred}</p>
                 </div>
-              </li>
-            ))}
-          </ol>
-        </div>
+                <p className="mt-1 text-sm leading-6 text-[#53645f]">{activity.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   );
