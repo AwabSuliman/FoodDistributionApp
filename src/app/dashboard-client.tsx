@@ -15,6 +15,7 @@ import {
 import type { DashboardActionResult } from "./actions";
 import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
+import { getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
 import { canEditRequest, canSubmitRecipientRequest } from "@/lib/request-access";
 import type { DashboardData, DeliveryActivity, DistributionRequest, RequestStatus, Role } from "@/lib/types";
@@ -543,8 +544,7 @@ function DriverView({
   const [selectedDriver, setSelectedDriver] = useState(availableDrivers[0]?.userId ?? availableDrivers[0]?.name ?? "");
   const activeDriver =
     availableDrivers.find((driver) => (driver.userId ?? driver.name) === selectedDriver) ?? availableDrivers[0];
-  const available = requests.filter((request) => ["Approved", "Not delivered"].includes(request.status));
-  const assigned = requests.filter((request) => request.driver === activeDriver?.name && request.status !== "Delivered");
+  const { assigned, available } = getDriverRequestBuckets(requests, activeDriver?.name);
 
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
