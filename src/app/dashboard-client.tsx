@@ -16,6 +16,7 @@ import type { DashboardActionResult } from "./actions";
 import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
+import { canSubmitRecipientRequest } from "@/lib/request-access";
 import type { DashboardData, DistributionRequest, RequestStatus, Role } from "@/lib/types";
 
 const roleOptions: { role: Role; label: string; helper: string }[] = [
@@ -154,36 +155,49 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
 
 function RecipientView({ auth, requests }: { auth: AuthProfile | null; requests: DistributionRequest[] }) {
   const latestRequest = requests[0];
+  const canSubmit = canSubmitRecipientRequest(auth?.role, Boolean(latestRequest));
 
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
       <Panel
-        title="Request a food box"
+        title={canSubmit ? "Request a food box" : "Your food box request"}
         kicker="Recipient"
         action={<span className="text-sm font-semibold text-[#66736f]">One request per family</span>}
       >
-        <div className="mb-5 rounded-md border border-[#e6d8b8] bg-[#fff9e9] px-4 py-3 text-sm leading-6 text-[#76521d]">
-          Each family can submit one request. If a delivery attempt fails, please contact the driver.
-        </div>
-        <ActionForm action={submitRequest} className="grid gap-4" successMessage="Request submitted.">
-          <Field label="Full name" name="recipient" value={auth?.name ?? "Fatima Ahmed"} />
-          <Field label="Address" name="address" value={auth ? "" : "216 Garden View Rd, Springfield, VA"} />
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Telephone/cellphone" name="phone" value={auth ? "" : "(555) 017-6641"} />
-            <Field label="Email" name="email" type="email" value={auth?.email ?? "fatima@example.com"} />
+        {canSubmit ? (
+          <>
+            <div className="mb-5 rounded-md border border-[#e6d8b8] bg-[#fff9e9] px-4 py-3 text-sm leading-6 text-[#76521d]">
+              Each family can submit one request. If a delivery attempt fails, please contact the driver.
+            </div>
+            <ActionForm action={submitRequest} className="grid gap-4" successMessage="Request submitted.">
+              <Field label="Full name" name="recipient" value={auth?.name ?? "Fatima Ahmed"} />
+              <Field label="Address" name="address" value={auth ? "" : "216 Garden View Rd, Springfield, VA"} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Telephone/cellphone" name="phone" value={auth ? "" : "(555) 017-6641"} />
+                <Field label="Email" name="email" type="email" value={auth?.email ?? "fatima@example.com"} />
+              </div>
+              <Field label="Household members" name="householdSize" type="number" value="6" />
+              <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+                Delivery instructions
+                <textarea
+                  className="min-h-28 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+                  defaultValue={auth ? "" : "Call when outside. Apartment is on the second floor."}
+                  name="instructions"
+                  required
+                />
+              </label>
+              <SubmitButton label="Submit request" />
+            </ActionForm>
+          </>
+        ) : (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+            <p className="font-bold">Your request has already been submitted.</p>
+            <p className="mt-2 text-sm leading-6">
+              Follow {latestRequest?.id} in the status panel. Contact the mosque if any household or delivery details
+              need to be corrected.
+            </p>
           </div>
-          <Field label="Household members" name="householdSize" type="number" value="6" />
-          <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
-            Delivery instructions
-            <textarea
-              className="min-h-28 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
-              defaultValue={auth ? "" : "Call when outside. Apartment is on the second floor."}
-              name="instructions"
-              required
-            />
-          </label>
-          <SubmitButton label="Submit request" />
-        </ActionForm>
+        )}
       </Panel>
 
       <Panel
