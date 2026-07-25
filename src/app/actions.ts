@@ -15,6 +15,7 @@ import {
   updateRequestDetails,
 } from "@/lib/data";
 import { PublicError, publicErrorMessage } from "@/lib/errors";
+import { parseSeasonInput } from "@/lib/season-input";
 import type { DriverApplicationDecision, RequestStatus } from "@/lib/types";
 
 export type DashboardActionResult = { error: string; ok: false } | { ok: true };
@@ -126,12 +127,11 @@ export async function editRequest(id: string, formData: FormData): Promise<Dashb
 export async function createSeason(formData: FormData): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
     await requireAuthenticatedRole(["admin"]);
-    const startsOn = readRequiredText(formData, "startsOn");
-    const endsOn = readRequiredText(formData, "endsOn");
+    const input = parseSeasonInput(formData);
 
-    if (endsOn < startsOn) throw new PublicError("Season end date must be after its start date.");
+    if (!input.ok) throw new PublicError(input.error);
 
-    await activateSeason({ endsOn, name: readRequiredText(formData, "name"), startsOn });
+    await activateSeason(input.data);
   });
 }
 

@@ -6,9 +6,11 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 
 - Recipients can submit a food box request with household size, contact details, and delivery instructions.
 - Admins can review, approve, deny, search, and filter requests.
-- Admins can approve or deny volunteer driver applications.
-- Drivers can apply to volunteer, select an approved driver profile, claim available deliveries, and update delivery status.
+- Admins can review the full volunteer roster and approve or deny driver applications.
+- Admins can assign and unassign deliveries directly from request details.
+- Drivers can apply to volunteer, claim available deliveries under their approved account, and update delivery status.
 - The dashboard tracks requests by operational state, family size, approved drivers, denied drivers, and pending driver applications.
+- Admins can browse archived requests by distribution season, inspect their details, and export a season as CSV.
 - Supabase authentication protects the dashboard when Supabase environment variables are configured.
 - Users can request a secure password reset link and choose a new password through the Supabase recovery flow.
 
@@ -97,6 +99,8 @@ When Supabase environment variables are present, `/` and `/dashboard` require si
 Supabase email confirmation links return through `/auth/callback`, which exchanges the auth code for a session and redirects back to the original protected page. In Supabase Auth settings, add your `NEXT_PUBLIC_SITE_URL` value to the allowed redirect URLs.
 
 The database policies scope recipients to their own requests, approved drivers to available or assigned deliveries, and admins to operational data. Delivery claims and state transitions execute atomically in PostgreSQL to prevent two drivers from claiming the same request.
+
+Activating a new distribution season archives the current season. The admin form requires explicit confirmation before making that change.
 
 ## Deployment Checklist
 

@@ -21,7 +21,15 @@ import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
 import { canEditRequest, canSubmitRecipientRequest, requestAssignmentAction } from "@/lib/request-access";
 import { groupRequestsBySeason } from "@/lib/request-history";
 import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-progress";
-import type { DashboardData, DeliveryActivity, DistributionRequest, RequestStatus, Role } from "@/lib/types";
+import { seasonDateRange } from "@/lib/season-input";
+import type {
+  DashboardData,
+  DeliveryActivity,
+  DistributionRequest,
+  DriverApplicationStatus,
+  RequestStatus,
+  Role,
+} from "@/lib/types";
 
 const roleOptions: { role: Role; label: string; helper: string }[] = [
   { role: "recipient", label: "Recipient", helper: "Submit and track a request" },
@@ -240,6 +248,8 @@ function AdminView({
   const [query, setQuery] = useState("");
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [selectedHistorySeasonId, setSelectedHistorySeasonId] = useState("");
+  const [selectedHistoryRequestId, setSelectedHistoryRequestId] = useState("");
+  const [driverRosterStatus, setDriverRosterStatus] = useState<DriverApplicationStatus>("pending");
   const filteredRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -260,6 +270,14 @@ function AdminView({
   const historyGroups = useMemo(() => groupRequestsBySeason(requestHistory), [requestHistory]);
   const selectedHistoryGroup =
     historyGroups.find((group) => group.id === selectedHistorySeasonId) ?? historyGroups[0];
+  const selectedHistoryRequest = selectedHistoryGroup?.requests.find(
+    (request) => request.id === selectedHistoryRequestId,
+  );
+  const driverRoster = {
+    approved: approvedDrivers,
+    denied: deniedDrivers,
+    pending: pendingDrivers,
+  }[driverRosterStatus];
 
   function exportRequests() {
     const blob = new Blob(["\uFEFF", requestsToCsv(filteredRequests)], { type: "text/csv;charset=utf-8" });
@@ -451,19 +469,7 @@ function AdminView({
                   </div>
                 </ActionForm>
               ) : (
-                <dl className="grid gap-4 rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-4 md:grid-cols-2">
-                  <Info label="Recipient" value={selectedRequest.recipient} />
-                  <Info label="Status" value={selectedRequest.status} />
-                  <Info label="Email" value={selectedRequest.email} />
-                  <Info label="Phone" value={selectedRequest.phone} />
-                  <Info label="Address" value={selectedRequest.address} />
-                  <Info label="Household" value={`${selectedRequest.householdSize} people`} />
-                  <Info label="Box weight" value={selectedRequest.boxWeight} />
-                  <Info label="Driver" value={selectedRequest.driver ?? "Unassigned"} />
-                  <div className="md:col-span-2">
-                    <Info label="Delivery instructions" value={selectedRequest.instructions} />
-                  </div>
-                </dl>
+                <RequestDetails request={selectedRequest} />
               )}
               {selectedRequestAssignmentAction === "assign" && (
                 <div className="mt-5 border-t border-[#dfe5e1] pt-5">
@@ -525,50 +531,93 @@ function AdminView({
         <div className="grid gap-5">
           <Panel title={activeSeason?.name ?? "No active season"} kicker="Distribution season">
             {canManageSeasons ? (
-              <ActionForm action={createSeason} className="grid gap-3" successMessage="New season activated.">
-                <Field label="Season name" name="name" value="Ramadan 2027" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Starts" name="startsOn" type="date" value="2027-02-08" />
-                  <Field label="Ends" name="endsOn" type="date" value="2027-03-09" />
-                </div>
-                <SubmitButton label="Activate season" />
-              </ActionForm>
+              <div className="grid gap-4">
+                {activeSeason && (
+                  <div className="border-b border-[#dfe5e1] pb-4">
+                    <p className="text-xs font-bold uppercase text-[#66736f]">Currently active</p>
+                    <p className="mt-1 text-sm font-semibold text-[#26312f]">{seasonDateRange(activeSeason)}</p>
+                  </div>
+                )}
+                <ActionForm action={createSeason} className="grid gap-3" successMessage="New season activated.">
+                  <Field label="New season name" name="name" value="Ramadan 2027" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Starts" name="startsOn" type="date" value="2027-02-08" />
+                    <Field label="Ends" name="endsOn" type="date" value="2027-03-09" />
+                  </div>
+                  <label className="flex items-start gap-2 text-sm font-semibold leading-5 text-[#53645f]">
+                    <input
+                      className="mt-1 h-4 w-4 accent-[#1f5d54]"
+                      name="confirmActivation"
+                      required
+                      type="checkbox"
+                      value="yes"
+                    />
+                    <span>Archive the current season and make this one active.</span>
+                  </label>
+                  <SubmitButton label="Activate season" />
+                </ActionForm>
+              </div>
             ) : (
               <p className="text-sm font-semibold text-[#53645f]">Connect Supabase to manage seasons.</p>
             )}
           </Panel>
-          <Panel title="Driver approvals" kicker="Pending">
+          <Panel title="Driver roster" kicker="Volunteers">
             <div className="grid gap-3">
-              {pendingDrivers.length === 0 ? (
+              <div className="grid grid-cols-3 rounded-md border border-[#d7ded7] bg-[#f8faf8] p-1">
+                {(["pending", "approved", "denied"] as DriverApplicationStatus[]).map((status) => {
+                  const count = {
+                    approved: approvedDrivers.length,
+                    denied: deniedDrivers.length,
+                    pending: pendingDrivers.length,
+                  }[status];
+
+                  return (
+                    <button
+                      className={`rounded px-2 py-2 text-xs font-bold capitalize ${
+                        driverRosterStatus === status ? "bg-[#1f5d54] text-white" : "text-[#53645f]"
+                      }`}
+                      key={status}
+                      onClick={() => setDriverRosterStatus(status)}
+                      type="button"
+                    >
+                      {status} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+              {driverRoster.length === 0 ? (
                 <p className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3 text-sm font-semibold text-[#53645f]">
-                  No pending driver applications.
+                  No {driverRosterStatus} driver applications.
                 </p>
               ) : (
-                pendingDrivers.map((driver) => (
+                driverRoster.map((driver) => (
                   <div className="rounded-md border border-[#dfe5e1] bg-white p-3" key={driver.email}>
                     <p className="font-bold">{driver.name}</p>
-                    <p className="mt-1 text-sm text-[#66736f]">{driver.phone}</p>
-                    <p className="text-sm text-[#66736f]">{driver.email}</p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <ActionButton
-                        action={resolveDriverApplication.bind(null, driverApplicationIdentifier(driver), "approved")}
-                        label="Approve"
-                        primary
-                      />
-                      <ActionButton
-                        action={resolveDriverApplication.bind(null, driverApplicationIdentifier(driver), "denied")}
-                        label="Deny"
-                      />
-                    </div>
+                    <a className="mt-1 block text-sm text-[#1f5d54]" href={`tel:${driver.phone}`}>
+                      {driver.phone}
+                    </a>
+                    <a className="block break-all text-sm text-[#1f5d54]" href={`mailto:${driver.email}`}>
+                      {driver.email}
+                    </a>
+                    {driverRosterStatus === "pending" && (
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <ActionButton
+                          action={resolveDriverApplication.bind(null, driverApplicationIdentifier(driver), "approved")}
+                          label="Approve"
+                          primary
+                        />
+                        <ActionButton
+                          action={resolveDriverApplication.bind(null, driverApplicationIdentifier(driver), "denied")}
+                          label="Deny"
+                        />
+                      </div>
+                    )}
+                    {driverRosterStatus === "denied" && (
+                      <p className="mt-3 text-xs font-semibold text-[#66736f]">May submit a new application.</p>
+                    )}
                   </div>
                 ))
               )}
-              <div className="grid grid-cols-2 gap-2 text-sm font-semibold text-[#53645f]">
-                <p className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] px-3 py-2">
-                  Approved: {approvedDrivers.length}
-                </p>
-                <p className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] px-3 py-2">Denied: {deniedDrivers.length}</p>
-              </div>
             </div>
           </Panel>
 
@@ -608,7 +657,10 @@ function AdminView({
                   Distribution season
                   <select
                     className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
-                    onChange={(event) => setSelectedHistorySeasonId(event.target.value)}
+                    onChange={(event) => {
+                      setSelectedHistorySeasonId(event.target.value);
+                      setSelectedHistoryRequestId("");
+                    }}
                     value={selectedHistoryGroup?.id ?? ""}
                   >
                     {historyGroups.map((group) => (
@@ -624,7 +676,8 @@ function AdminView({
                       <tr className="border-b border-[#dfe5e1] text-xs uppercase text-[#66736f]">
                         <th className="py-2 pr-3">Request</th>
                         <th className="py-2 pr-3">Status</th>
-                        <th className="py-2">Driver</th>
+                        <th className="py-2 pr-3">Driver</th>
+                        <th className="py-2">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#edf0ed]">
@@ -637,12 +690,40 @@ function AdminView({
                           <td className="py-2 pr-3">
                             <StatusPill status={request.status} />
                           </td>
-                          <td className="py-2">{request.driver ?? "Unassigned"}</td>
+                          <td className="py-2 pr-3">{request.driver ?? "Unassigned"}</td>
+                          <td className="py-2">
+                            <button
+                              className="rounded-md border border-[#c9d3ce] bg-white px-2 py-1.5 text-xs font-bold"
+                              onClick={() => setSelectedHistoryRequestId(request.id)}
+                              type="button"
+                            >
+                              View
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                {selectedHistoryRequest && (
+                  <div className="border-t border-[#dfe5e1] pt-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-[#66736f]">Archived request</p>
+                        <h3 className="mt-1 font-bold">{selectedHistoryRequest.id}</h3>
+                      </div>
+                      <button
+                        className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm font-bold"
+                        onClick={() => setSelectedHistoryRequestId("")}
+                        type="button"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <RequestDetails request={selectedHistoryRequest} />
+                    <DeliveryActivityList activities={selectedHistoryRequest.deliveryActivity ?? []} showEmpty />
+                  </div>
+                )}
               </div>
             )}
           </Panel>
@@ -1077,6 +1158,24 @@ function DeliveryCard({
         </div>
       )}
     </article>
+  );
+}
+
+function RequestDetails({ request }: { request: DistributionRequest }) {
+  return (
+    <dl className="grid gap-4 rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-4 md:grid-cols-2">
+      <Info label="Recipient" value={request.recipient} />
+      <Info label="Status" value={request.status} />
+      <Info label="Email" value={request.email} />
+      <Info label="Phone" value={request.phone} />
+      <Info label="Address" value={request.address} />
+      <Info label="Household" value={`${request.householdSize} people`} />
+      <Info label="Box weight" value={request.boxWeight} />
+      <Info label="Driver" value={request.driver ?? "Unassigned"} />
+      <div className="md:col-span-2">
+        <Info label="Delivery instructions" value={request.instructions} />
+      </div>
+    </dl>
   );
 }
 
