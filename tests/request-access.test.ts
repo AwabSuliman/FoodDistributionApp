@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canEditRequest, canSubmitRecipientRequest } from "../src/lib/request-access.ts";
+import {
+  canEditRequest,
+  canSubmitRecipientRequest,
+  requestAssignmentAction,
+} from "../src/lib/request-access.ts";
 
 test("signed-in recipients cannot submit twice in one active season", () => {
   assert.equal(canSubmitRecipientRequest("recipient", true), false);
@@ -22,4 +26,13 @@ test("request details are editable only before approval", () => {
   assert.equal(canEditRequest("Approved"), false);
   assert.equal(canEditRequest("Out for delivery"), false);
   assert.equal(canEditRequest("Delivered"), false);
+});
+
+test("admins can assign available requests and release early assignments", () => {
+  assert.equal(requestAssignmentAction("Approved"), "assign");
+  assert.equal(requestAssignmentAction("Not delivered"), "assign");
+  assert.equal(requestAssignmentAction("Driver assigned"), "unassign");
+  assert.equal(requestAssignmentAction("Heading to pickup"), "unassign");
+  assert.equal(requestAssignmentAction("Picked up"), null);
+  assert.equal(requestAssignmentAction("Delivered"), null);
 });

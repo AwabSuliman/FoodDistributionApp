@@ -18,7 +18,7 @@ import type { AuthProfile } from "@/lib/auth";
 import { driverApplicationIdentifier } from "@/lib/driver-applications";
 import { getAvailableDriversForProfile, getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
-import { canEditRequest, canSubmitRecipientRequest } from "@/lib/request-access";
+import { canEditRequest, canSubmitRecipientRequest, requestAssignmentAction } from "@/lib/request-access";
 import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-progress";
 import type { DashboardData, DeliveryActivity, DistributionRequest, RequestStatus, Role } from "@/lib/types";
 
@@ -254,6 +254,7 @@ function AdminView({
   }, [query, requests, statusFilter]);
   const selectedRequest = requests.find((request) => request.id === selectedRequestId);
   const selectedRequestCanBeEdited = selectedRequest ? canEditRequest(selectedRequest.status) : false;
+  const selectedRequestAssignmentAction = selectedRequest ? requestAssignmentAction(selectedRequest.status) : null;
 
   function exportRequests() {
     const blob = new Blob(["\uFEFF", requestsToCsv(filteredRequests)], { type: "text/csv;charset=utf-8" });
@@ -360,7 +361,11 @@ function AdminView({
                           onClick={() => setSelectedRequestId(request.id)}
                           type="button"
                         >
-                          {canEditRequest(request.status) ? "Edit" : "View"}
+                          {canEditRequest(request.status)
+                            ? "Edit"
+                            : requestAssignmentAction(request.status)
+                              ? "Manage"
+                              : "View"}
                         </button>
                       </div>
                     </td>
@@ -440,6 +445,58 @@ function AdminView({
                     <Info label="Delivery instructions" value={selectedRequest.instructions} />
                   </div>
                 </dl>
+              )}
+              {selectedRequestAssignmentAction === "assign" && (
+                <div className="mt-5 border-t border-[#dfe5e1] pt-5">
+                  <h4 className="font-bold text-[#26312f]">Driver assignment</h4>
+                  <p className="mt-1 text-sm leading-6 text-[#66736f]">
+                    Assign this request to an approved volunteer driver.
+                  </p>
+                  {approvedDrivers.length === 0 ? (
+                    <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+                      Approve a driver application before assigning this request.
+                    </p>
+                  ) : (
+                    <ActionForm
+                      action={claimDelivery.bind(null, selectedRequest.recordId ?? selectedRequest.id)}
+                      className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+                      successMessage="Driver assigned."
+                    >
+                      <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+                        Approved driver
+                        <select
+                          className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+                          name="driver"
+                          required
+                        >
+                          {approvedDrivers.map((driver) => (
+                            <option
+                              key={driverApplicationIdentifier(driver)}
+                              value={driverApplicationIdentifier(driver)}
+                            >
+                              {driver.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <SubmitButton label="Assign driver" />
+                    </ActionForm>
+                  )}
+                </div>
+              )}
+              {selectedRequestAssignmentAction === "unassign" && (
+                <div className="mt-5 flex flex-col justify-between gap-3 border-t border-[#dfe5e1] pt-5 sm:flex-row sm:items-center">
+                  <div>
+                    <h4 className="font-bold text-[#26312f]">Driver assignment</h4>
+                    <p className="mt-1 text-sm text-[#66736f]">
+                      Currently assigned to {selectedRequest.driver ?? "an approved driver"}.
+                    </p>
+                  </div>
+                  <ActionButton
+                    action={unclaimDelivery.bind(null, selectedRequest.recordId ?? selectedRequest.id)}
+                    label="Unassign"
+                  />
+                </div>
               )}
               <DeliveryActivityList activities={selectedRequest.deliveryActivity ?? []} showEmpty />
             </div>

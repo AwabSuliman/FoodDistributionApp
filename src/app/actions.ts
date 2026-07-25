@@ -151,10 +151,10 @@ export async function claimDelivery(id: string, formData: FormData): Promise<Das
   return runDashboardAction(async () => {
     const profile = await requireApprovedDriverOrAdmin();
 
-    if (profile?.role === "admin") {
+    if (!profile || profile.role === "admin") {
       await assignRequest(id, readRequiredText(formData, "driver"));
     } else {
-      await claimRequest(id, profile?.name);
+      await claimRequest(id, profile.name);
     }
   });
 }

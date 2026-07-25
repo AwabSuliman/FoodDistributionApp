@@ -9,3 +9,9 @@ export function canSubmitRecipientRequest(role: Role | undefined, hasActiveReque
 export function canEditRequest(status: RequestStatus) {
   return status === "Submitted" || status === "Under review";
 }
+
+export function requestAssignmentAction(status: RequestStatus): "assign" | "unassign" | null {
+  if (status === "Approved" || status === "Not delivered") return "assign";
+  if (status === "Driver assigned" || status === "Heading to pickup") return "unassign";
+  return null;
+}
