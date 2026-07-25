@@ -24,6 +24,11 @@ const failedDeliveryMigrationUrl = new URL(
   import.meta.url,
 );
 const failedDeliveryMigration = await readFile(failedDeliveryMigrationUrl, "utf8");
+const realtimeMigrationUrl = new URL(
+  "../supabase/migrations/20260724000500_enable_dashboard_realtime.sql",
+  import.meta.url,
+);
+const realtimeMigration = await readFile(realtimeMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -104,4 +109,14 @@ test("failed deliveries require and store a reason", () => {
     failedDeliveryMigration,
     /grant execute on function public\.set_delivery_status\(uuid, public\.request_status, text\) to authenticated/i,
   );
+});
+
+test("dashboard tables are added to the realtime publication safely", () => {
+  for (const table of ["delivery_events", "distribution_requests", "driver_applications", "seasons"]) {
+    assert.match(realtimeMigration, new RegExp(`'${table}'`, "i"));
+  }
+
+  assert.match(realtimeMigration, /pubname = 'supabase_realtime'/i);
+  assert.match(realtimeMigration, /if not exists/i);
+  assert.match(realtimeMigration, /alter publication supabase_realtime add table/i);
 });

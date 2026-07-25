@@ -12,6 +12,7 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 - The dashboard tracks requests by operational state, family size, approved drivers, denied drivers, and pending driver applications.
 - Admins can browse archived requests by distribution season, inspect their details, and export a season as CSV.
 - Supabase authentication protects the dashboard when Supabase environment variables are configured.
+- Signed-in dashboards refresh automatically when another user changes requests, deliveries, driver applications, or seasons.
 - Users can request a secure password reset link and choose a new password through the Supabase recovery flow.
 
 ## Tech Stack
@@ -101,6 +102,8 @@ Driver applications use the signed-in account's name, email, and user ID. Applic
 Supabase email confirmation links return through `/auth/callback`, which exchanges the auth code for a session and redirects back to the original protected page. In Supabase Auth settings, add your `NEXT_PUBLIC_SITE_URL` value to the allowed redirect URLs.
 
 The database policies scope recipients to their own requests, approved drivers to available or assigned deliveries, and admins to operational data. Delivery claims and state transitions execute atomically in PostgreSQL to prevent two drivers from claiming the same request.
+
+Supabase Realtime keeps open dashboards current across users. Realtime change delivery still follows the table row-level security policies, so each account receives only changes it is allowed to read.
 
 Marking a delivery as not delivered requires a reason. Supabase stores that reason with the delivery event so recipients and admins can see it in the request activity history.
 

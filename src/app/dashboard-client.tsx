@@ -22,6 +22,7 @@ import { canEditRequest, canSubmitRecipientRequest, requestAssignmentAction } fr
 import { groupRequestsBySeason } from "@/lib/request-history";
 import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-progress";
 import { seasonDateRange } from "@/lib/season-input";
+import { LiveDashboardRefresh } from "./live-dashboard-refresh";
 import type {
   DashboardData,
   DeliveryActivity,
@@ -83,6 +84,7 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
 
   return (
     <main className="min-h-screen bg-[#f4f5f1] text-[#17201f]">
+      <LiveDashboardRefresh enabled={Boolean(auth)} />
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col">
         <header className="border-b border-[#d8ded7] px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
