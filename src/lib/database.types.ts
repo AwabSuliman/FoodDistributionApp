@@ -277,6 +277,7 @@ export type Database = {
       set_delivery_status: {
         Args: {
           next_status: Database["public"]["Enums"]["request_status"]
+          status_note?: string
           target_request_id: string
         }
         Returns: {
@@ -486,4 +487,3 @@ export const Constants = {
     },
   },
 } as const
-

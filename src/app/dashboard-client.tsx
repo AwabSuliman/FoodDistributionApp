@@ -1159,8 +1159,33 @@ function DeliveryCard({
           )}
           {request.status === "Out for delivery" && (
             <>
-              <ActionButton action={updateDeliveryStatus.bind(null, request.recordId ?? request.id, "Delivered")} label="Delivered" primary />
-              <ActionButton action={updateDeliveryStatus.bind(null, request.recordId ?? request.id, "Not delivered")} label="Missed" />
+              <div className="sm:col-span-2">
+                <ActionButton action={updateDeliveryStatus.bind(null, request.recordId ?? request.id, "Delivered")} label="Delivered" primary />
+              </div>
+              <ActionForm
+                action={updateDeliveryStatus.bind(null, request.recordId ?? request.id, "Not delivered")}
+                className="grid gap-2 rounded-md border border-[#e8c9cd] bg-[#fff7f7] p-3 sm:col-span-2"
+                successMessage="Delivery marked not delivered."
+              >
+                <label className="text-sm font-bold text-[#692a33]" htmlFor={`missed-reason-${request.id}`}>
+                  Reason delivery was missed
+                </label>
+                <textarea
+                  className="min-h-20 resize-y rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm"
+                  id={`missed-reason-${request.id}`}
+                  maxLength={500}
+                  minLength={5}
+                  name="reason"
+                  placeholder="For example: no one answered after calling."
+                  required
+                />
+                <button
+                  className="rounded-md border border-[#b95c68] bg-white px-3 py-2 text-sm font-bold text-[#8b3440]"
+                  type="submit"
+                >
+                  Mark not delivered
+                </button>
+              </ActionForm>
             </>
           )}
           {["Driver assigned", "Heading to pickup"].includes(request.status) && (

@@ -235,6 +235,21 @@ select set_config(
 select public.set_delivery_status('99999999-0000-0000-0000-000000000201', 'heading_to_pickup');
 select public.set_delivery_status('99999999-0000-0000-0000-000000000201', 'picked_up');
 select public.set_delivery_status('99999999-0000-0000-0000-000000000201', 'out_for_delivery');
+
+do $$
+declare
+  missing_reason_was_blocked boolean := false;
+begin
+  begin
+    perform public.set_delivery_status('99999999-0000-0000-0000-000000000201', 'not_delivered');
+  exception when others then
+    missing_reason_was_blocked := true;
+  end;
+
+  if not missing_reason_was_blocked then raise exception 'failed delivery accepted without a reason'; end if;
+end;
+$$;
+
 select public.set_delivery_status('99999999-0000-0000-0000-000000000201', 'delivered');
 
 select set_config(

@@ -72,9 +72,9 @@ export async function unclaimRequest(id: string) {
   return setFileRequestStatus(id, "Approved");
 }
 
-export async function setDeliveryStatus(id: string, status: RequestStatus) {
-  if (getSupabaseConfig()) return setDatabaseDeliveryStatus(id, status);
-  return setFileRequestStatus(id, status);
+export async function setDeliveryStatus(id: string, status: RequestStatus, note?: string) {
+  if (getSupabaseConfig()) return setDatabaseDeliveryStatus(id, status, note);
+  return setFileRequestStatus(id, status, note);
 }
 
 export async function createDriverApplication(profile: AuthProfile | null, input: DriverApplicationInput) {

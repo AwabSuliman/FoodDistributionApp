@@ -19,6 +19,11 @@ const trustedRolesMigrationUrl = new URL(
   import.meta.url,
 );
 const trustedRolesMigration = await readFile(trustedRolesMigrationUrl, "utf8");
+const failedDeliveryMigrationUrl = new URL(
+  "../supabase/migrations/20260724000400_record_failed_delivery_reasons.sql",
+  import.meta.url,
+);
+const failedDeliveryMigration = await readFile(failedDeliveryMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -89,4 +94,14 @@ test("signup roles are trusted and enforced by database policies", () => {
   assert.match(trustedRolesMigration, /app_metadata' ->> 'role'\) = 'recipient'/i);
   assert.match(trustedRolesMigration, /drop policy "recipients create their requests"/i);
   assert.match(trustedRolesMigration, /drop policy "users create their driver application"/i);
+});
+
+test("failed deliveries require and store a reason", () => {
+  assert.match(failedDeliveryMigration, /status_note text default null/i);
+  assert.match(failedDeliveryMigration, /next_status = 'not_delivered'.+length\(trim\(status_note\)\) < 5/is);
+  assert.match(failedDeliveryMigration, /case when next_status = 'not_delivered' then trim\(status_note\)/i);
+  assert.match(
+    failedDeliveryMigration,
+    /grant execute on function public\.set_delivery_status\(uuid, public\.request_status, text\) to authenticated/i,
+  );
 });

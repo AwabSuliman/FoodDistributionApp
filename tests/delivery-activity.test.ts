@@ -44,10 +44,27 @@ test("status events explain the exact transition", () => {
   assert.equal(activity.detail, "Picked up changed to Out for delivery.");
 });
 
+test("failed delivery events include the driver's reason", () => {
+  const activity = makeDeliveryActivity({
+    eventType: "status_changed",
+    fromStatus: "Out for delivery",
+    id: "4",
+    note: "No one answered the door or phone.",
+    occurred: "Just now",
+    toStatus: "Not delivered",
+  });
+
+  assert.equal(activity.title, "Status: Not delivered");
+  assert.equal(
+    activity.detail,
+    "Out for delivery changed to Not delivered. Reason: No one answered the door or phone.",
+  );
+});
+
 test("unclaimed events explain that the delivery is available again", () => {
   const activity = makeDeliveryActivity({
     eventType: "unclaimed",
-    id: "4",
+    id: "5",
     occurred: "3 min ago",
   });
 

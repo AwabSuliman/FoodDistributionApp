@@ -198,6 +198,7 @@ function groupDeliveryActivity(rows: DeliveryEventRow[], driverNames: Map<string
       eventType: row.event_type,
       fromStatus: row.from_status ? fromDatabaseStatus[row.from_status] : undefined,
       id: String(row.id),
+      note: row.event_type === "status_changed" ? row.notes ?? undefined : undefined,
       occurred: relativeTime(row.created_at),
       toStatus: row.to_status ? fromDatabaseStatus[row.to_status] : undefined,
     });
@@ -366,10 +367,11 @@ export async function unclaimDatabaseRequest(id: string) {
   throwDatabaseError(error, "Unable to unclaim the delivery.");
 }
 
-export async function setDatabaseDeliveryStatus(id: string, status: RequestStatus) {
+export async function setDatabaseDeliveryStatus(id: string, status: RequestStatus, note?: string) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("set_delivery_status", {
     next_status: toDatabaseStatus[status],
+    status_note: note,
     target_request_id: id,
   });
   throwDatabaseError(error, "Unable to update the delivery.");

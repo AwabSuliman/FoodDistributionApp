@@ -135,7 +135,11 @@ export async function createSeason(formData: FormData): Promise<DashboardActionR
   });
 }
 
-export async function updateDeliveryStatus(id: string, status: RequestStatus): Promise<DashboardActionResult> {
+export async function updateDeliveryStatus(
+  id: string,
+  status: RequestStatus,
+  formData?: FormData,
+): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
     await requireApprovedDriverOrAdmin();
 
@@ -143,7 +147,21 @@ export async function updateDeliveryStatus(id: string, status: RequestStatus): P
       throw new PublicError("Unsupported delivery status.");
     }
 
-    await setDeliveryStatus(id, status);
+    let note: string | undefined;
+
+    if (status === "Not delivered") {
+      if (!formData) throw new PublicError("A reason is required when a delivery is missed.");
+      note = readRequiredText(formData, "reason");
+
+      if (note.length < 5) {
+        throw new PublicError("The missed-delivery reason must be at least 5 characters.");
+      }
+      if (note.length > 500) {
+        throw new PublicError("The missed-delivery reason must be 500 characters or fewer.");
+      }
+    }
+
+    await setDeliveryStatus(id, status, note);
   });
 }
 

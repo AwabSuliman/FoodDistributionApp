@@ -6,6 +6,7 @@ export type DeliveryActivityInput = {
   eventType: string;
   fromStatus?: RequestStatus;
   id: string;
+  note?: string;
   occurred: string;
   toStatus?: RequestStatus;
 };
@@ -43,7 +44,7 @@ export function makeDeliveryActivity(input: DeliveryActivityInput): DeliveryActi
   return {
     detail:
       input.fromStatus && input.toStatus
-        ? `${input.fromStatus} changed to ${input.toStatus}.`
+        ? `${input.fromStatus} changed to ${input.toStatus}.${input.toStatus === "Not delivered" && input.note ? ` Reason: ${input.note}` : ""}`
         : "The delivery status was updated.",
     id: input.id,
     occurred: input.occurred,

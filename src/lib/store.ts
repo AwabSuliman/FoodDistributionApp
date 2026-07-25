@@ -12,6 +12,7 @@ import type {
 } from "./types";
 import { PublicError } from "./errors";
 import { matchesDriverApplication } from "./driver-applications";
+import { makeDeliveryActivity } from "./delivery-activity";
 
 type AppState = {
   approvedDrivers: PendingDriver[];
@@ -229,8 +230,15 @@ export async function createRequest(input: RequestInput) {
   return request;
 }
 
-export async function setRequestStatus(id: string, status: RequestStatus) {
+export async function setRequestStatus(id: string, status: RequestStatus, note?: string) {
   const state = await readState();
+  const deliveryStatuses = new Set<RequestStatus>([
+    "Heading to pickup",
+    "Picked up",
+    "Out for delivery",
+    "Delivered",
+    "Not delivered",
+  ]);
 
   await writeState({
     ...state,
@@ -238,6 +246,19 @@ export async function setRequestStatus(id: string, status: RequestStatus) {
       request.id === id
         ? {
             ...request,
+            deliveryActivity: deliveryStatuses.has(status)
+              ? [
+                  makeDeliveryActivity({
+                    eventType: "status_changed",
+                    fromStatus: request.status,
+                    id: `local-${Date.now()}`,
+                    note,
+                    occurred: "Just now",
+                    toStatus: status,
+                  }),
+                  ...(request.deliveryActivity ?? []),
+                ]
+              : request.deliveryActivity,
             driver: status === "Approved" || status === "Denied" ? undefined : request.driver,
             status,
             updated: "Just now",
