@@ -122,6 +122,34 @@ select public.claim_delivery('99999999-0000-0000-0000-000000000201');
 
 select set_config(
   'request.jwt.claims',
+  '{"sub":"99999999-0000-0000-0000-000000000104","role":"authenticated","app_metadata":{"role":"admin"}}',
+  true
+);
+select public.unclaim_delivery('99999999-0000-0000-0000-000000000201');
+
+do $$
+declare
+  assigned_driver uuid;
+  current_status public.request_status;
+begin
+  select assigned_driver_id, status into assigned_driver, current_status
+  from public.distribution_requests
+  where id = '99999999-0000-0000-0000-000000000201';
+
+  if assigned_driver is not null then raise exception 'admin unclaim left a driver assigned'; end if;
+  if current_status <> 'approved' then raise exception 'admin unclaim did not return request to approved'; end if;
+end;
+$$;
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{}}',
+  true
+);
+select public.claim_delivery('99999999-0000-0000-0000-000000000201');
+
+select set_config(
+  'request.jwt.claims',
   '{"sub":"99999999-0000-0000-0000-000000000103","role":"authenticated","app_metadata":{}}',
   true
 );

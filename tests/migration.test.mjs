@@ -9,6 +9,11 @@ const hardeningMigrationUrl = new URL(
   import.meta.url,
 );
 const hardeningMigration = await readFile(hardeningMigrationUrl, "utf8");
+const adminUnclaimMigrationUrl = new URL(
+  "../supabase/migrations/20260724000100_allow_admin_unclaim.sql",
+  import.meta.url,
+);
+const adminUnclaimMigration = await readFile(adminUnclaimMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -64,4 +69,10 @@ test("database hardening optimizes policy checks and foreign keys", () => {
   assert.match(hardeningMigration, /\(select public\.is_admin\(\)\)/i);
   assert.match(hardeningMigration, /create index delivery_events_actor_idx/i);
   assert.match(hardeningMigration, /create index driver_applications_reviewed_by_idx/i);
+});
+
+test("admins can release an active driver assignment", () => {
+  assert.match(adminUnclaimMigration, /assigned_driver_id = auth\.uid\(\) or public\.is_admin\(\)/i);
+  assert.match(adminUnclaimMigration, /set assigned_driver_id = null, status = 'approved'/i);
+  assert.match(adminUnclaimMigration, /assigned driver or an admin can unclaim/i);
 });
