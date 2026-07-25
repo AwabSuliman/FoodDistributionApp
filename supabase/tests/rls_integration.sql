@@ -54,6 +54,22 @@ begin
 end;
 $$;
 
+do $$
+declare
+  outbox_read_was_blocked boolean := false;
+begin
+  begin
+    perform count(*) from public.email_outbox;
+  exception when others then
+    outbox_read_was_blocked := true;
+  end;
+
+  if not outbox_read_was_blocked then
+    raise exception 'recipient can read the private email outbox';
+  end if;
+end;
+$$;
+
 select public.update_request_details(
   '99999999-0000-0000-0000-000000000201',
   'QA Recipient Updated',
@@ -232,6 +248,7 @@ select public.bulk_set_request_status(
 
 do $$
 declare
+  queued_emails bigint;
   visible_notifications integer;
   visible_requests integer;
   visible_applications integer;
@@ -239,9 +256,11 @@ begin
   select count(*) into visible_requests from public.distribution_requests;
   select count(*) into visible_applications from public.driver_applications;
   select count(*) into visible_notifications from public.notifications;
+  select pending into queued_emails from public.email_delivery_summary();
   if visible_requests <> 1 then raise exception 'admin cannot read requests'; end if;
   if visible_applications <> 2 then raise exception 'admin cannot read driver applications'; end if;
   if visible_notifications < 1 then raise exception 'admin cannot read own notifications'; end if;
+  if queued_emails < 1 then raise exception 'request email was not queued'; end if;
 end;
 $$;
 

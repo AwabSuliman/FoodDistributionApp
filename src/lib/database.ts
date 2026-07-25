@@ -10,6 +10,7 @@ import type {
   DriverApplicationDecision,
   DriverApplicationInput,
   DriverApplicationStatus,
+  EmailDeliverySummary,
   FamilySizeRow,
   PendingDriver,
   RequestStatus,
@@ -261,7 +262,14 @@ function makeFamilySizeRows(requests: DistributionRequest[]): FamilySizeRow[] {
 
 export async function getDatabaseDashboardData(profile: AuthProfile): Promise<DashboardData> {
   const supabase = await createSupabaseServerClient();
-  const [seasonsResult, driversResult, requestsResult, eventsResult, notificationsResult] = await Promise.all([
+  const [
+    seasonsResult,
+    driversResult,
+    requestsResult,
+    eventsResult,
+    notificationsResult,
+    emailDeliveryResult,
+  ] = await Promise.all([
     supabase
       .from("seasons")
       .select("id,name,starts_on,ends_on,is_active,accepting_requests")
@@ -277,6 +285,9 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
       .select("id,kind,title,message,request_id,read_at,created_at")
       .order("created_at", { ascending: false })
       .limit(50),
+    profile.role === "admin"
+      ? supabase.rpc("email_delivery_summary")
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   throwDatabaseError(seasonsResult.error, "Unable to load distribution seasons.");
@@ -284,6 +295,7 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
   throwDatabaseError(requestsResult.error, "Unable to load requests.");
   throwDatabaseError(eventsResult.error, "Unable to load delivery activity.");
   throwDatabaseError(notificationsResult.error, "Unable to load notifications.");
+  throwDatabaseError(emailDeliveryResult.error, "Unable to load email delivery status.");
 
   const drivers = (driversResult.data ?? []) as DriverRow[];
   const driverNames = new Map(drivers.map((driver) => [driver.user_id, driver.name]));
@@ -301,12 +313,18 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
     .filter((request) => !activeSeasonId || request.season_id !== activeSeasonId)
     .map((request) => toRequest(request, driverNames, activitiesByRequest, seasonNames));
   const ownApplication = drivers.find((driver) => driver.user_id === profile.userId);
+  const emailDeliveryRow = (
+    (emailDeliveryResult.data ?? []) as EmailDeliverySummary[]
+  )[0];
 
   return {
     activeSeason: activeSeason ? toSeason(activeSeason) : undefined,
     approvedDrivers: drivers.filter((driver) => driver.status === "approved").map(toDriver),
     currentDriverApplication: ownApplication ? { ...toDriver(ownApplication), status: ownApplication.status } : undefined,
     deniedDrivers: profile.role === "admin" ? drivers.filter((driver) => driver.status === "denied").map(toDriver) : [],
+    emailDelivery: profile.role === "admin"
+      ? emailDeliveryRow ?? { failed: 0, pending: 0, sent: 0 }
+      : undefined,
     familySizeRows: profile.role === "admin" ? makeFamilySizeRows(requests) : [],
     notifications: ((notificationsResult.data ?? []) as NotificationRow[]).map((notification) =>
       toNotification(notification, requestNumbers),

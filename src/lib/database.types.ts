@@ -55,6 +55,65 @@ export type Database = {
           },
         ]
       }
+      email_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: number
+          last_error: string | null
+          locked_at: string | null
+          next_attempt_at: string
+          notification_id: number
+          provider_message_id: string | null
+          recipient_email: string
+          sent_at: string | null
+          status: string
+          subject: string
+          text_body: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: never
+          last_error?: string | null
+          locked_at?: string | null
+          next_attempt_at?: string
+          notification_id: number
+          provider_message_id?: string | null
+          recipient_email: string
+          sent_at?: string | null
+          status?: string
+          subject: string
+          text_body: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: never
+          last_error?: string | null
+          locked_at?: string | null
+          next_attempt_at?: string
+          notification_id?: number
+          provider_message_id?: string | null
+          recipient_email?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          text_body?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: true
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distribution_requests: {
         Row: {
           address: string
@@ -368,6 +427,28 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      claim_email_outbox: {
+        Args: { batch_size?: number }
+        Returns: Database["public"]["Tables"]["email_outbox"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      complete_email_outbox: {
+        Args: { resend_message_id: string; target_outbox_id: number }
+        Returns: undefined
+      }
+      email_delivery_summary: {
+        Args: never
+        Returns: { failed: number; pending: number; sent: number }[]
+      }
+      fail_email_outbox: {
+        Args: { failure_message: string; target_outbox_id: number }
+        Returns: undefined
       }
       is_admin: { Args: never; Returns: boolean }
       is_approved_driver: { Args: { candidate?: string }; Returns: boolean }

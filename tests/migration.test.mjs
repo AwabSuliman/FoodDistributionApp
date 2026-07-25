@@ -64,6 +64,11 @@ const notificationsMigrationUrl = new URL(
   import.meta.url,
 );
 const notificationsMigration = await readFile(notificationsMigrationUrl, "utf8");
+const emailOutboxMigrationUrl = new URL(
+  "../supabase/migrations/20260725000800_queue_notification_emails.sql",
+  import.meta.url,
+);
+const emailOutboxMigration = await readFile(emailOutboxMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -240,4 +245,17 @@ test("in-app notifications are private, automatic, and dismissible", () => {
   assert.match(notificationsMigration, /function public\.mark_notification_read\(target_notification_id bigint\)/i);
   assert.match(notificationsMigration, /where id = target_notification_id\s+and user_id = auth\.uid\(\)/i);
   assert.match(notificationsMigration, /alter publication supabase_realtime add table public\.notifications/i);
+});
+
+test("transactional emails use a private retryable outbox", () => {
+  assert.match(emailOutboxMigration, /create table public\.email_outbox/i);
+  assert.match(emailOutboxMigration, /alter table public\.email_outbox enable row level security/i);
+  assert.match(emailOutboxMigration, /revoke all on public\.email_outbox from public, anon, authenticated/i);
+  assert.match(emailOutboxMigration, /after insert on public\.notifications/i);
+  assert.match(emailOutboxMigration, /function public\.claim_email_outbox\(batch_size integer default 20\)/i);
+  assert.match(emailOutboxMigration, /for update skip locked/i);
+  assert.match(emailOutboxMigration, /attempts < 5/i);
+  assert.match(emailOutboxMigration, /status = case when attempts \+ 1 >= 5 then 'failed' else 'pending' end/i);
+  assert.match(emailOutboxMigration, /grant execute on function public\.claim_email_outbox\(integer\) to service_role/i);
+  assert.match(emailOutboxMigration, /if not public\.is_admin\(\)/i);
 });

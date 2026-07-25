@@ -22,6 +22,7 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 - Supabase authentication protects the dashboard when Supabase environment variables are configured.
 - Signed-in dashboards refresh automatically when another user changes requests, deliveries, driver applications, or seasons.
 - In-app notifications alert recipients, drivers, and admins about request decisions, available or assigned deliveries, failed attempts, and driver applications.
+- Transactional emails notify recipients and drivers about important request, delivery, and application milestones.
 - Users can request a secure password reset link and choose a new password through the Supabase recovery flow.
 
 ## Tech Stack
@@ -128,6 +129,28 @@ Marking a delivery as not delivered requires a reason. Supabase stores that reas
 
 PostgreSQL triggers create private in-app notifications for important workflow changes. Each account can read and dismiss only its own alerts, and Realtime refreshes the unread count while the dashboard is open.
 
+Important recipient and driver alerts are also copied into a private email outbox. The `send-notification-emails` Supabase Edge Function sends queued messages through Resend, retries temporary failures with backoff, and uses provider idempotency keys to avoid duplicate email during a retry. Broadcast alerts about generally available deliveries remain in-app only to avoid emailing every approved driver.
+
+## Transactional Email Setup
+
+Create a Resend account, verify the sending domain, and create an API key. Then set these Edge Function secrets in Supabase:
+
+```bash
+supabase secrets set RESEND_API_KEY=re_...
+supabase secrets set EMAIL_FROM="Masjid Al-Wasatiyah Wal-Itidaal <notifications@example.org>"
+supabase secrets set APP_URL=https://your-production-domain.example
+```
+
+Deploy the worker with secret-key authentication:
+
+```bash
+supabase functions deploy send-notification-emails --no-verify-jwt
+```
+
+Copy `supabase/email-worker-cron.sql.example`, replace its project URL and Supabase secret API key placeholders, and run it once in the Supabase SQL Editor. The scheduled job invokes the worker every minute. Project credentials are stored in Supabase Vault rather than committed to the repository.
+
+The admin dashboard reports queued, sent, and permanently failed email counts. A message becomes permanently failed after five attempts; inspect the Edge Function logs and Resend dashboard when that count is nonzero.
+
 Activating a new distribution season archives the current season. The admin form requires explicit confirmation before making that change.
 
 ## Deployment Checklist
@@ -135,6 +158,7 @@ Activating a new distribution season archives the current season. The admin form
 - Apply every migration in `supabase/migrations` before deploying the matching application build.
 - Add all three environment variables to the hosting project.
 - Add the production `/auth/callback` URL to Supabase Auth redirects.
+- Configure Resend, deploy `send-notification-emails`, and schedule it with the Vault-backed cron setup.
 - Create staff accounts manually and set their trusted `app_metadata.role` to `admin`.
 - Verify recipient, pending-driver, approved-driver, and admin accounts separately.
 - Run `npm test`, `npm run lint`, and `npm run build`.

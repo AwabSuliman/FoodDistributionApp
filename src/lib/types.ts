@@ -96,11 +96,18 @@ export type FamilySizeRow = {
   delivered: number;
 };
 
+export type EmailDeliverySummary = {
+  failed: number;
+  pending: number;
+  sent: number;
+};
+
 export type DashboardData = {
   activeSeason?: Season;
   approvedDrivers: PendingDriver[];
   currentDriverApplication?: CurrentDriverApplication;
   deniedDrivers: PendingDriver[];
+  emailDelivery?: EmailDeliverySummary;
   familySizeRows: FamilySizeRow[];
   notifications: AppNotification[];
   pendingDrivers: PendingDriver[];

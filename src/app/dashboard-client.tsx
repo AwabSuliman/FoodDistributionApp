@@ -188,6 +188,7 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
                 activeSeason={data.activeSeason}
                 canManageSeasons={Boolean(auth)}
                 deniedDrivers={data.deniedDrivers}
+                emailDelivery={data.emailDelivery}
                 familySizeRows={familySizeRows}
                 pendingDrivers={pendingDrivers}
                 requestHistory={data.requestHistory ?? []}
@@ -450,6 +451,7 @@ function AdminView({
   approvedDrivers,
   canManageSeasons,
   deniedDrivers,
+  emailDelivery,
   familySizeRows,
   pendingDrivers,
   requestHistory,
@@ -460,6 +462,7 @@ function AdminView({
   approvedDrivers: DashboardData["approvedDrivers"];
   canManageSeasons: boolean;
   deniedDrivers: DashboardData["deniedDrivers"];
+  emailDelivery: DashboardData["emailDelivery"];
   familySizeRows: DashboardData["familySizeRows"];
   pendingDrivers: DashboardData["pendingDrivers"];
   requestHistory: DistributionRequest[];
@@ -1092,6 +1095,21 @@ function AdminView({
               </table>
             </div>
           </Panel>
+
+          {emailDelivery && (
+            <Panel title="Email delivery" kicker="Notifications">
+              <div className="grid grid-cols-3 gap-3">
+                <ReportMetric label="Queued" value={emailDelivery.pending} />
+                <ReportMetric label="Sent" value={emailDelivery.sent} />
+                <ReportMetric label="Failed" value={emailDelivery.failed} />
+              </div>
+              {emailDelivery.failed > 0 && (
+                <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold leading-5 text-rose-800">
+                  Some emails could not be delivered after five attempts. Check the Edge Function logs and Resend dashboard.
+                </p>
+              )}
+            </Panel>
+          )}
 
           <Panel
             title="Past seasons"

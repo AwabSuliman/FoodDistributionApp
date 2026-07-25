@@ -238,6 +238,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   return {
     approvedDrivers: state.approvedDrivers,
     deniedDrivers: state.deniedDrivers,
+    emailDelivery: { failed: 0, pending: 2, sent: 8 },
     familySizeRows: makeFamilySizeRows(state.requests),
     notifications: state.notifications,
     pendingDrivers: state.pendingDrivers,
