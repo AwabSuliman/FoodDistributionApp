@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import {
+  bulkAssignDeliveries,
+  bulkApproveDriverApplications,
+  bulkUpdateRequests,
   claimDelivery,
   createSeason,
   editOwnRequest,
@@ -20,6 +23,7 @@ import type { AuthProfile } from "@/lib/auth";
 import { driverApplicationIdentifier } from "@/lib/driver-applications";
 import { getAvailableDriversForProfile, getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
+import { getBulkRequestOperation, isBulkSelectable } from "@/lib/request-bulk";
 import {
   canEditRequest,
   canRecipientEditRequest,
@@ -71,6 +75,10 @@ const statusOptions: (RequestStatus | "All")[] = [
   "Not delivered",
   "Denied",
 ];
+
+function requestIdentifier(request: DistributionRequest) {
+  return request.recordId ?? request.id;
+}
 
 export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: DashboardData }) {
   const visibleRoleOptions =
@@ -320,6 +328,8 @@ function AdminView({
   const [selectedHistorySeasonId, setSelectedHistorySeasonId] = useState("");
   const [selectedHistoryRequestId, setSelectedHistoryRequestId] = useState("");
   const [driverRosterStatus, setDriverRosterStatus] = useState<DriverApplicationStatus>("pending");
+  const [selectedRequestIds, setSelectedRequestIds] = useState<string[]>([]);
+  const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>([]);
   const filteredRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -335,6 +345,16 @@ function AdminView({
     });
   }, [query, requests, statusFilter]);
   const selectedRequest = requests.find((request) => request.id === selectedRequestId);
+  const selectableFilteredRequests = filteredRequests.filter((request) => isBulkSelectable(request.status));
+  const selectedRequests = requests.filter((request) =>
+    selectedRequestIds.includes(requestIdentifier(request)),
+  );
+  const bulkOperation = getBulkRequestOperation(selectedRequests);
+  const allFilteredSelected =
+    selectableFilteredRequests.length > 0
+    && selectableFilteredRequests.every((request) =>
+      selectedRequestIds.includes(requestIdentifier(request)),
+    );
   const selectedRequestCanBeEdited = selectedRequest ? canEditRequest(selectedRequest.status) : false;
   const selectedRequestAssignmentAction = selectedRequest ? requestAssignmentAction(selectedRequest.status) : null;
   const historyGroups = useMemo(() => groupRequestsBySeason(requestHistory), [requestHistory]);
@@ -425,10 +445,108 @@ function AdminView({
               </select>
             </label>
           </div>
+          {selectedRequestIds.length > 0 && (
+            <div className="mb-4 flex flex-col gap-3 border-y border-[#dfe5e1] bg-[#f8faf8] px-3 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-bold text-[#26312f]">
+                  {selectedRequestIds.length} request{selectedRequestIds.length === 1 ? "" : "s"} selected
+                </p>
+                <button
+                  className="text-sm font-bold text-[#53645f]"
+                  onClick={() => setSelectedRequestIds([])}
+                  type="button"
+                >
+                  Clear selection
+                </button>
+              </div>
+              {bulkOperation === "review" && (
+                <ActionForm
+                  action={bulkUpdateRequests.bind(null, "Under review")}
+                  className="flex flex-wrap items-center gap-2"
+                  onSuccess={() => setSelectedRequestIds([])}
+                  successMessage="Selected requests moved to review."
+                >
+                  <SelectedRequestFields ids={selectedRequestIds} />
+                  <button className="rounded-md bg-[#1f5d54] px-3 py-2 text-sm font-bold text-white" type="submit">
+                    Start review
+                  </button>
+                </ActionForm>
+              )}
+              {bulkOperation === "approve" && (
+                <ActionForm
+                  action={bulkUpdateRequests.bind(null, "Approved")}
+                  className="flex flex-wrap items-center gap-2"
+                  onSuccess={() => setSelectedRequestIds([])}
+                  successMessage="Selected requests approved."
+                >
+                  <SelectedRequestFields ids={selectedRequestIds} />
+                  <button className="rounded-md bg-[#1f5d54] px-3 py-2 text-sm font-bold text-white" type="submit">
+                    Approve selected
+                  </button>
+                </ActionForm>
+              )}
+              {bulkOperation === "assign" && (
+                <ActionForm
+                  action={bulkAssignDeliveries}
+                  className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+                  onSuccess={() => setSelectedRequestIds([])}
+                  successMessage="Selected deliveries assigned."
+                >
+                  <SelectedRequestFields ids={selectedRequestIds} />
+                  <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+                    Approved driver
+                    <select
+                      className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal"
+                      disabled={approvedDrivers.length === 0}
+                      name="driver"
+                      required
+                    >
+                      {approvedDrivers.map((driver) => (
+                        <option
+                          key={driverApplicationIdentifier(driver)}
+                          value={driverApplicationIdentifier(driver)}
+                        >
+                          {driver.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="rounded-md bg-[#1f5d54] px-3 py-2 text-sm font-bold text-white disabled:bg-[#9aaaa5]"
+                    disabled={approvedDrivers.length === 0}
+                    type="submit"
+                  >
+                    Assign selected
+                  </button>
+                </ActionForm>
+              )}
+              {!bulkOperation && (
+                <p className="text-sm font-semibold text-amber-900">
+                  Select requests at the same stage to use a bulk action.
+                </p>
+              )}
+            </div>
+          )}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[940px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-[#dfe5e1] text-xs uppercase tracking-wide text-[#66736f]">
+                  <th className="px-3 py-3">
+                    <input
+                      aria-label="Select all actionable requests"
+                      checked={allFilteredSelected}
+                      className="h-4 w-4 accent-[#1f5d54]"
+                      onChange={(event) => {
+                        const filteredIds = selectableFilteredRequests.map(requestIdentifier);
+                        setSelectedRequestIds((current) =>
+                          event.target.checked
+                            ? [...new Set([...current, ...filteredIds])]
+                            : current.filter((id) => !filteredIds.includes(id)),
+                        );
+                      }}
+                      type="checkbox"
+                    />
+                  </th>
                   <th className="px-3 py-3">Request</th>
                   <th className="px-3 py-3">Family</th>
                   <th className="px-3 py-3">Box</th>
@@ -441,6 +559,23 @@ function AdminView({
               <tbody className="divide-y divide-[#edf0ed]">
                 {filteredRequests.map((request) => (
                   <tr className="bg-white hover:bg-[#f8faf8]" key={request.id}>
+                    <td className="px-3 py-3">
+                      <input
+                        aria-label={`Select ${request.id}`}
+                        checked={selectedRequestIds.includes(requestIdentifier(request))}
+                        className="h-4 w-4 accent-[#1f5d54]"
+                        disabled={!isBulkSelectable(request.status)}
+                        onChange={(event) =>
+                          setSelectedRequestIds((current) => {
+                            const id = requestIdentifier(request);
+                            return event.target.checked
+                              ? [...current, id]
+                              : current.filter((item) => item !== id);
+                          })
+                        }
+                        type="checkbox"
+                      />
+                    </td>
                     <td className="px-3 py-3">
                       <p className="font-bold text-[#17201f]">{request.id}</p>
                       <p className="text-[#66736f]">{request.recipient}</p>
@@ -672,6 +807,59 @@ function AdminView({
                   );
                 })}
               </div>
+              {driverRosterStatus === "pending" && pendingDrivers.length > 0 && (
+                <div className="grid gap-3 border-y border-[#dfe5e1] bg-[#f8faf8] px-3 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <label className="flex items-center gap-2 text-sm font-bold text-[#26312f]">
+                      <input
+                        checked={
+                          pendingDrivers.length > 0
+                          && pendingDrivers.every((driver) =>
+                            selectedDriverIds.includes(driverApplicationIdentifier(driver)),
+                          )
+                        }
+                        className="h-4 w-4 accent-[#1f5d54]"
+                        onChange={(event) =>
+                          setSelectedDriverIds(
+                            event.target.checked
+                              ? pendingDrivers.map(driverApplicationIdentifier)
+                              : [],
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      Select all pending
+                    </label>
+                    {selectedDriverIds.length > 0 && (
+                      <button
+                        className="text-sm font-bold text-[#53645f]"
+                        onClick={() => setSelectedDriverIds([])}
+                        type="button"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  {selectedDriverIds.length > 0 && (
+                    <ActionForm
+                      action={bulkApproveDriverApplications}
+                      className="flex flex-wrap items-center gap-2"
+                      onSuccess={() => setSelectedDriverIds([])}
+                      successMessage="Selected driver applications approved."
+                    >
+                      {selectedDriverIds.map((id) => (
+                        <input key={id} name="driverId" type="hidden" value={id} />
+                      ))}
+                      <button
+                        className="rounded-md bg-[#1f5d54] px-3 py-2 text-sm font-bold text-white"
+                        type="submit"
+                      >
+                        Approve {selectedDriverIds.length} selected
+                      </button>
+                    </ActionForm>
+                  )}
+                </div>
+              )}
               {driverRoster.length === 0 ? (
                 <p className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3 text-sm font-semibold text-[#53645f]">
                   No {driverRosterStatus} driver applications.
@@ -679,7 +867,25 @@ function AdminView({
               ) : (
                 driverRoster.map((driver) => (
                   <div className="rounded-md border border-[#dfe5e1] bg-white p-3" key={driver.email}>
-                    <p className="font-bold">{driver.name}</p>
+                    <div className="flex items-start gap-3">
+                      {driverRosterStatus === "pending" && (
+                        <input
+                          aria-label={`Select ${driver.name}`}
+                          checked={selectedDriverIds.includes(driverApplicationIdentifier(driver))}
+                          className="mt-1 h-4 w-4 accent-[#1f5d54]"
+                          onChange={(event) => {
+                            const id = driverApplicationIdentifier(driver);
+                            setSelectedDriverIds((current) =>
+                              event.target.checked
+                                ? [...current, id]
+                                : current.filter((item) => item !== id),
+                            );
+                          }}
+                          type="checkbox"
+                        />
+                      )}
+                      <p className="font-bold">{driver.name}</p>
+                    </div>
                     <a className="mt-1 block text-sm text-[#1f5d54]" href={`tel:${driver.phone}`}>
                       {driver.phone}
                     </a>
@@ -1037,15 +1243,21 @@ function ActionButton({
   );
 }
 
+function SelectedRequestFields({ ids }: { ids: string[] }) {
+  return ids.map((id) => <input key={id} name="requestId" type="hidden" value={id} />);
+}
+
 function ActionForm({
   action,
   children,
   className,
+  onSuccess,
   successMessage,
 }: {
   action: (formData: FormData) => Promise<DashboardActionResult>;
   children: React.ReactNode;
   className?: string;
+  onSuccess?: () => void;
   successMessage: string;
 }) {
   const [state, setState] = useState<{ message: string; tone: "error" | "success" } | null>(null);
@@ -1057,6 +1269,7 @@ function ActionForm({
 
     try {
       const result = await action(formData);
+      if (result.ok) onSuccess?.();
       setState(
         result.ok
           ? { message: successMessage, tone: "success" }

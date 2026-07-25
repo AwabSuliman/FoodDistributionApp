@@ -224,6 +224,39 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      bulk_assign_deliveries: {
+        Args: { target_driver_id: string; target_request_ids: string[] }
+        Returns: Database["public"]["Tables"]["distribution_requests"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "distribution_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      bulk_approve_driver_applications: {
+        Args: { target_user_ids: string[] }
+        Returns: Database["public"]["Tables"]["driver_applications"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "driver_applications"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      bulk_set_request_status: {
+        Args: {
+          new_status: Database["public"]["Enums"]["request_status"]
+          target_request_ids: string[]
+        }
+        Returns: Database["public"]["Tables"]["distribution_requests"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "distribution_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       set_request_intake: {
         Args: { accepting_requests: boolean }
         Returns: {

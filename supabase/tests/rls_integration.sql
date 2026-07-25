@@ -208,13 +208,21 @@ $$;
 
 select public.set_request_intake(true);
 
-update public.driver_applications
-set status = 'approved', reviewed_by = '99999999-0000-0000-0000-000000000104', reviewed_at = now();
+select public.bulk_approve_driver_applications(
+  array[
+    '99999999-0000-0000-0000-000000000102',
+    '99999999-0000-0000-0000-000000000103'
+  ]::uuid[]
+);
 
-update public.distribution_requests set status = 'under_review'
-where id = '99999999-0000-0000-0000-000000000201';
-update public.distribution_requests set status = 'approved'
-where id = '99999999-0000-0000-0000-000000000201';
+select public.bulk_set_request_status(
+  array['99999999-0000-0000-0000-000000000201']::uuid[],
+  'under_review'
+);
+select public.bulk_set_request_status(
+  array['99999999-0000-0000-0000-000000000201']::uuid[],
+  'approved'
+);
 
 do $$
 declare
@@ -233,12 +241,15 @@ select set_config(
   '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{"role":"driver"}}',
   true
 );
-select public.claim_delivery('99999999-0000-0000-0000-000000000201');
 
 select set_config(
   'request.jwt.claims',
   '{"sub":"99999999-0000-0000-0000-000000000104","role":"authenticated","app_metadata":{"role":"admin"}}',
   true
+);
+select public.bulk_assign_deliveries(
+  array['99999999-0000-0000-0000-000000000201']::uuid[],
+  '99999999-0000-0000-0000-000000000102'
 );
 select public.unclaim_delivery('99999999-0000-0000-0000-000000000201');
 

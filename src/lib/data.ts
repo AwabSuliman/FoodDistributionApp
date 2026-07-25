@@ -5,6 +5,9 @@ import { getSupabaseConfig } from "./auth";
 import {
   assignDatabaseRequest,
   activateDatabaseSeason,
+  bulkAssignDatabaseRequests,
+  bulkApproveDatabaseDrivers,
+  bulkSetDatabaseRequestStatus,
   claimDatabaseRequest,
   createDatabaseDriverApplication,
   createDatabaseRequest,
@@ -17,6 +20,7 @@ import {
   updateDatabaseRequestDetails,
 } from "./database";
 import {
+  assignRequest as assignFileRequest,
   claimRequest as claimFileRequest,
   createDriverApplication as createFileDriverApplication,
   createRequest as createFileRequest,
@@ -70,7 +74,23 @@ export async function claimRequest(id: string, driver?: string) {
 
 export async function assignRequest(id: string, driverId: string) {
   if (getSupabaseConfig()) return assignDatabaseRequest(id, driverId);
-  return claimFileRequest(id, driverId);
+  return assignFileRequest(id, driverId);
+}
+
+export async function bulkSetRequestStatus(ids: string[], status: RequestStatus) {
+  if (getSupabaseConfig()) return bulkSetDatabaseRequestStatus(ids, status);
+
+  for (const id of ids) {
+    await setFileRequestStatus(id, status);
+  }
+}
+
+export async function bulkAssignRequests(ids: string[], driverId: string) {
+  if (getSupabaseConfig()) return bulkAssignDatabaseRequests(ids, driverId);
+
+  for (const id of ids) {
+    await assignFileRequest(id, driverId);
+  }
 }
 
 export async function unclaimRequest(id: string) {
@@ -94,4 +114,12 @@ export async function createDriverApplication(profile: AuthProfile | null, input
 export async function resolvePendingDriver(driverIdentifier: string, decision: DriverApplicationDecision) {
   if (getSupabaseConfig()) return resolveDatabaseDriverApplication(driverIdentifier, decision);
   return resolveFilePendingDriver(driverIdentifier, decision);
+}
+
+export async function bulkApproveDrivers(driverIdentifiers: string[]) {
+  if (getSupabaseConfig()) return bulkApproveDatabaseDrivers(driverIdentifiers);
+
+  for (const identifier of driverIdentifiers) {
+    await resolveFilePendingDriver(identifier, "approved");
+  }
 }

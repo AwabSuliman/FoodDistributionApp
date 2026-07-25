@@ -8,8 +8,10 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 - Recipients can correct their own request details until the request is approved.
 - Recipients and admins can see an audit history from submission through delivery.
 - Admins can review, approve, deny, search, and filter requests.
+- Admins can move requests into review, approve them, or assign deliveries in batches.
 - Admins can open or close recipient request intake without ending the active season.
 - Admins can review the full volunteer roster and approve or deny driver applications.
+- Admins can select and approve multiple pending driver applications together.
 - Admins can assign and unassign deliveries directly from request details.
 - Drivers can apply to volunteer, claim available deliveries under their approved account, update delivery status, and record why a delivery was missed.
 - Drivers can review their active-season delivery totals and completed attempts.
@@ -112,6 +114,10 @@ Recipients can update only their own submitted or under-review request. The prot
 Database triggers record request submission, detail edits, review, approval, and denial. Those entries appear alongside driver assignment and delivery updates in the request activity history.
 
 Admins can close request intake while keeping the current distribution season active, then reopen it later. The database checks the intake setting again when a recipient submits, so a stale browser cannot bypass the closure.
+
+The admin request table supports bulk review, approval, and driver assignment for up to 200 requests. Each bulk database function validates every selected request and rolls back the entire operation if any item has already changed.
+
+Pending driver applications can also be approved in batches of up to 200. Supabase locks and validates every selected application before committing the approvals.
 
 Supabase Realtime keeps open dashboards current across users. Realtime change delivery still follows the table row-level security policies, so each account receives only changes it is allowed to read.
 

@@ -5,6 +5,9 @@ import { requireApprovedDriverOrAdmin, requireAuthenticatedRole } from "@/lib/au
 import {
   assignRequest,
   activateSeason,
+  bulkAssignRequests,
+  bulkApproveDrivers,
+  bulkSetRequestStatus,
   claimRequest,
   createDriverApplication,
   createRequest,
@@ -62,6 +65,40 @@ function validateEmail(email: string) {
   }
 }
 
+function readRequestIds(formData: FormData) {
+  const ids = [
+    ...new Set(
+      formData
+        .getAll("requestId")
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  if (ids.length === 0) throw new PublicError("Select at least one request.");
+  if (ids.length > 200) throw new PublicError("Select no more than 200 requests at once.");
+
+  return ids;
+}
+
+function readDriverIds(formData: FormData) {
+  const ids = [
+    ...new Set(
+      formData
+        .getAll("driverId")
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  if (ids.length === 0) throw new PublicError("Select at least one driver application.");
+  if (ids.length > 200) throw new PublicError("Select no more than 200 driver applications at once.");
+
+  return ids;
+}
+
 export async function submitRequest(formData: FormData): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
     const profile = await requireAuthenticatedRole(["recipient"]);
@@ -94,6 +131,33 @@ export async function updateRequestStatus(id: string, status: RequestStatus): Pr
     }
 
     await setRequestStatus(id, status);
+  });
+}
+
+export async function bulkUpdateRequests(
+  status: "Approved" | "Under review",
+  formData: FormData,
+): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+    await bulkSetRequestStatus(readRequestIds(formData), status);
+  });
+}
+
+export async function bulkAssignDeliveries(formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+    await bulkAssignRequests(
+      readRequestIds(formData),
+      readRequiredText(formData, "driver"),
+    );
+  });
+}
+
+export async function bulkApproveDriverApplications(formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+    await bulkApproveDrivers(readDriverIds(formData));
   });
 }
 

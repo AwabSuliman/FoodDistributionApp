@@ -44,6 +44,16 @@ const requestIntakeMigrationUrl = new URL(
   import.meta.url,
 );
 const requestIntakeMigration = await readFile(requestIntakeMigrationUrl, "utf8");
+const bulkActionsMigrationUrl = new URL(
+  "../supabase/migrations/20260725000400_add_bulk_request_actions.sql",
+  import.meta.url,
+);
+const bulkActionsMigration = await readFile(bulkActionsMigrationUrl, "utf8");
+const bulkDriverApprovalMigrationUrl = new URL(
+  "../supabase/migrations/20260725000500_add_bulk_driver_approval.sql",
+  import.meta.url,
+);
+const bulkDriverApprovalMigration = await readFile(bulkDriverApprovalMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -165,4 +175,33 @@ test("admins can open and close request intake", () => {
   assert.match(requestIntakeMigration, /if not public\.is_admin\(\)/i);
   assert.match(requestIntakeMigration, /where is_active/i);
   assert.match(requestIntakeMigration, /grant execute on function public\.set_request_intake\(boolean\) to authenticated/i);
+});
+
+test("bulk request actions are admin-only and transaction-safe", () => {
+  assert.match(bulkActionsMigration, /function public\.bulk_set_request_status/i);
+  assert.match(bulkActionsMigration, /function public\.bulk_assign_deliveries/i);
+  assert.match(bulkActionsMigration, /if not public\.is_admin\(\)/i);
+  assert.match(bulkActionsMigration, /for update/i);
+  assert.match(bulkActionsMigration, /cardinality\(target_request_ids\) > 200/i);
+  assert.match(bulkActionsMigration, /from public\.assign_delivery\(request_id, target_driver_id\)/i);
+  assert.match(
+    bulkActionsMigration,
+    /grant execute on function public\.bulk_set_request_status\(uuid\[\], public\.request_status\) to authenticated/i,
+  );
+  assert.match(
+    bulkActionsMigration,
+    /grant execute on function public\.bulk_assign_deliveries\(uuid\[\], uuid\) to authenticated/i,
+  );
+});
+
+test("bulk driver approval is admin-only and locks every application", () => {
+  assert.match(bulkDriverApprovalMigration, /function public\.bulk_approve_driver_applications/i);
+  assert.match(bulkDriverApprovalMigration, /if not public\.is_admin\(\)/i);
+  assert.match(bulkDriverApprovalMigration, /application\.status <> 'pending'/i);
+  assert.match(bulkDriverApprovalMigration, /for update/i);
+  assert.match(bulkDriverApprovalMigration, /reviewed_by = auth\.uid\(\)/i);
+  assert.match(
+    bulkDriverApprovalMigration,
+    /grant execute on function public\.bulk_approve_driver_applications\(uuid\[\]\) to authenticated/i,
+  );
 });

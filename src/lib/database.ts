@@ -369,6 +369,24 @@ export async function assignDatabaseRequest(id: string, driverId: string) {
   throwDatabaseError(error, "Unable to assign the delivery.");
 }
 
+export async function bulkSetDatabaseRequestStatus(ids: string[], status: RequestStatus) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("bulk_set_request_status", {
+    new_status: toDatabaseStatus[status],
+    target_request_ids: ids,
+  });
+  throwDatabaseError(error, "Unable to update the selected requests.");
+}
+
+export async function bulkAssignDatabaseRequests(ids: string[], driverId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("bulk_assign_deliveries", {
+    target_driver_id: driverId,
+    target_request_ids: ids,
+  });
+  throwDatabaseError(error, "Unable to assign the selected deliveries.");
+}
+
 export async function unclaimDatabaseRequest(id: string) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("unclaim_delivery", { target_request_id: id });
@@ -417,4 +435,12 @@ export async function resolveDatabaseDriverApplication(userId: string, decision:
     .maybeSingle();
   throwDatabaseError(error, "Unable to resolve the driver application.");
   if (!data) throw new PublicError("This driver application has already been reviewed.");
+}
+
+export async function bulkApproveDatabaseDrivers(userIds: string[]) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("bulk_approve_driver_applications", {
+    target_user_ids: userIds,
+  });
+  throwDatabaseError(error, "Unable to approve the selected driver applications.");
 }

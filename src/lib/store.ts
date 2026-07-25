@@ -326,6 +326,29 @@ export async function claimRequest(id: string, driver = "Omar Hassan") {
   });
 }
 
+export async function assignRequest(id: string, driverIdentifier: string) {
+  const state = await readState();
+  const driver = state.approvedDrivers.find((candidate) =>
+    matchesDriverApplication(candidate, driverIdentifier),
+  );
+
+  if (!driver) throw new PublicError("Select an approved driver.");
+
+  await writeState({
+    ...state,
+    requests: state.requests.map((request) =>
+      request.id === id && (request.status === "Approved" || request.status === "Not delivered")
+        ? {
+            ...request,
+            driver: driver.name,
+            status: "Driver assigned",
+            updated: "Just now",
+          }
+        : request,
+    ),
+  });
+}
+
 export async function createDriverApplication(input: DriverApplicationInput) {
   const state = await readState();
   const email = normalizeComparable(input.email);
