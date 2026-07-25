@@ -16,6 +16,8 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 - Drivers can apply to volunteer, claim available deliveries under their approved account, update delivery status, and record why a delivery was missed.
 - Drivers can review their active-season delivery totals and completed attempts.
 - The dashboard tracks requests by operational state, family size, approved drivers, denied drivers, and pending driver applications.
+- Admin reports summarize families, household members, approved food weight, delivered food weight, and totals by status.
+- Drivers can download a route manifest for their currently assigned deliveries.
 - Admins can browse archived requests by distribution season, inspect their details, and export a season as CSV.
 - Supabase authentication protects the dashboard when Supabase environment variables are configured.
 - Signed-in dashboards refresh automatically when another user changes requests, deliveries, driver applications, or seasons.

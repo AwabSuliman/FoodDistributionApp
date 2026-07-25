@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requestCsvFilename, requestsToCsv } from "../src/lib/request-csv.ts";
+import {
+  requestCsvFilename,
+  requestsToCsv,
+  routeManifestFilename,
+  routeManifestToCsv,
+} from "../src/lib/request-csv.ts";
 import type { DistributionRequest } from "../src/lib/types.ts";
 
 const request: DistributionRequest = {
@@ -35,4 +40,14 @@ test("request CSV neutralizes spreadsheet formulas in user-entered fields", () =
 test("request CSV filenames are stable and filesystem-safe", () => {
   assert.equal(requestCsvFilename("Ramadan 2027"), "distribution-requests-ramadan-2027.csv");
   assert.equal(requestCsvFilename("  "), "distribution-requests-active-season.csv");
+});
+
+test("driver route manifests contain delivery fields without recipient email", () => {
+  const csv = routeManifestToCsv([request]);
+
+  assert.match(csv, /"Request","Recipient","Phone","Address"/);
+  assert.match(csv, /"Delivery instructions","Status"/);
+  assert.doesNotMatch(csv, /"Email"/);
+  assert.doesNotMatch(csv, /amina@example\.org/);
+  assert.equal(routeManifestFilename("Omar Hassan"), "delivery-route-omar-hassan.csv");
 });

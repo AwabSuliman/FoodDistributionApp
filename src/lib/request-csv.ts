@@ -35,3 +35,32 @@ export function requestCsvFilename(seasonName?: string) {
 
   return `distribution-requests-${season || "active-season"}.csv`;
 }
+
+const routeColumns: { heading: string; value: (request: DistributionRequest) => number | string }[] = [
+  { heading: "Request", value: (request) => request.id },
+  { heading: "Recipient", value: (request) => request.recipient },
+  { heading: "Phone", value: (request) => request.phone },
+  { heading: "Address", value: (request) => request.address },
+  { heading: "Household members", value: (request) => request.householdSize },
+  { heading: "Box weight", value: (request) => request.boxWeight },
+  { heading: "Delivery instructions", value: (request) => request.instructions },
+  { heading: "Status", value: (request) => request.status },
+];
+
+export function routeManifestToCsv(requests: DistributionRequest[]) {
+  const headings = routeColumns.map((column) => csvCell(column.heading)).join(",");
+  const rows = requests.map((request) =>
+    routeColumns.map((column) => csvCell(column.value(request))).join(","),
+  );
+  return [headings, ...rows].join("\r\n");
+}
+
+export function routeManifestFilename(driverName?: string) {
+  const driver = (driverName ?? "driver")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return `delivery-route-${driver || "driver"}.csv`;
+}

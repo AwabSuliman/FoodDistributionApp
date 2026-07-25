@@ -22,8 +22,15 @@ import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
 import { driverApplicationIdentifier } from "@/lib/driver-applications";
 import { getAvailableDriversForProfile, getDriverRequestBuckets } from "@/lib/driver-requests";
-import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
+import {
+  requestCsvFilename,
+  requestsToCsv,
+  routeManifestFilename,
+  routeManifestToCsv,
+} from "@/lib/request-csv";
+import { inputLimits } from "@/lib/input-limits";
 import { getBulkRequestOperation, isBulkSelectable } from "@/lib/request-bulk";
+import { makeRequestReport } from "@/lib/request-report";
 import {
   canEditRequest,
   canRecipientEditRequest,
@@ -78,6 +85,16 @@ const statusOptions: (RequestStatus | "All")[] = [
 
 function requestIdentifier(request: DistributionRequest) {
   return request.recordId ?? request.id;
+}
+
+function downloadCsv(contents: string, filename: string) {
+  const blob = new Blob(["\uFEFF", contents], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: DashboardData }) {
@@ -216,11 +233,11 @@ function RecipientView({
               Each family can submit one request. If a delivery attempt fails, please contact the driver.
             </div>
             <ActionForm action={submitRequest} className="grid gap-4" successMessage="Request submitted.">
-              <Field label="Full name" name="recipient" value={auth?.name ?? "Fatima Ahmed"} />
-              <Field label="Address" name="address" value={auth ? "" : "216 Garden View Rd, Springfield, VA"} />
+              <Field label="Full name" maxLength={inputLimits.name} name="recipient" value={auth?.name ?? "Fatima Ahmed"} />
+              <Field label="Address" maxLength={inputLimits.address} name="address" value={auth ? "" : "216 Garden View Rd, Springfield, VA"} />
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Telephone/cellphone" name="phone" value={auth ? "" : "(555) 017-6641"} />
-                <Field label="Email" name="email" type="email" value={auth?.email ?? "fatima@example.com"} />
+                <Field label="Telephone/cellphone" maxLength={inputLimits.phone} name="phone" value={auth ? "" : "(555) 017-6641"} />
+                <Field label="Email" maxLength={inputLimits.email} name="email" type="email" value={auth?.email ?? "fatima@example.com"} />
               </div>
               <Field label="Household members" name="householdSize" type="number" value="6" />
               <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
@@ -228,6 +245,7 @@ function RecipientView({
                 <textarea
                   className="min-h-28 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
                   defaultValue={auth ? "" : "Call when outside. Apartment is on the second floor."}
+                  maxLength={inputLimits.instructions}
                   name="instructions"
                   required
                 />
@@ -254,11 +272,11 @@ function RecipientView({
                   className="mt-4 grid gap-4"
                   successMessage="Request details updated."
                 >
-                  <Field label="Full name" name="recipient" value={latestRequest.recipient} />
-                  <Field label="Address" name="address" value={latestRequest.address} />
+                  <Field label="Full name" maxLength={inputLimits.name} name="recipient" value={latestRequest.recipient} />
+                  <Field label="Address" maxLength={inputLimits.address} name="address" value={latestRequest.address} />
                   <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Telephone/cellphone" name="phone" value={latestRequest.phone} />
-                    <Field label="Email" name="email" type="email" value={latestRequest.email} />
+                    <Field label="Telephone/cellphone" maxLength={inputLimits.phone} name="phone" value={latestRequest.phone} />
+                    <Field label="Email" maxLength={inputLimits.email} name="email" type="email" value={latestRequest.email} />
                   </div>
                   <Field
                     label="Household members"
@@ -271,6 +289,7 @@ function RecipientView({
                     <textarea
                       className="min-h-28 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
                       defaultValue={latestRequest.instructions}
+                      maxLength={inputLimits.instructions}
                       name="instructions"
                       required
                     />
@@ -368,29 +387,19 @@ function AdminView({
     denied: deniedDrivers,
     pending: pendingDrivers,
   }[driverRosterStatus];
+  const requestReport = useMemo(() => makeRequestReport(requests), [requests]);
 
   function exportRequests() {
-    const blob = new Blob(["\uFEFF", requestsToCsv(filteredRequests)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = requestCsvFilename(activeSeason?.name);
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(requestsToCsv(filteredRequests), requestCsvFilename(activeSeason?.name));
   }
 
   function exportHistory() {
     if (!selectedHistoryGroup) return;
 
-    const blob = new Blob(["\uFEFF", requestsToCsv(selectedHistoryGroup.requests)], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = requestCsvFilename(selectedHistoryGroup.name);
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(
+      requestsToCsv(selectedHistoryGroup.requests),
+      requestCsvFilename(selectedHistoryGroup.name),
+    );
   }
 
   return (
@@ -644,10 +653,10 @@ function AdminView({
                   className="grid gap-3 md:grid-cols-2"
                   successMessage="Request updated."
                 >
-                  <Field label="Full name" name="recipient" value={selectedRequest.recipient} />
-                  <Field label="Email" name="email" type="email" value={selectedRequest.email} />
-                  <Field label="Telephone/cellphone" name="phone" value={selectedRequest.phone} />
-                  <Field label="Address" name="address" value={selectedRequest.address} />
+                  <Field label="Full name" maxLength={inputLimits.name} name="recipient" value={selectedRequest.recipient} />
+                  <Field label="Email" maxLength={inputLimits.email} name="email" type="email" value={selectedRequest.email} />
+                  <Field label="Telephone/cellphone" maxLength={inputLimits.phone} name="phone" value={selectedRequest.phone} />
+                  <Field label="Address" maxLength={inputLimits.address} name="address" value={selectedRequest.address} />
                   <Field
                     label="Household members"
                     name="householdSize"
@@ -665,6 +674,7 @@ function AdminView({
                     <textarea
                       className="min-h-24 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal"
                       defaultValue={selectedRequest.instructions}
+                      maxLength={inputLimits.instructions}
                       name="instructions"
                       required
                     />
@@ -761,7 +771,7 @@ function AdminView({
                   </div>
                 )}
                 <ActionForm action={createSeason} className="grid gap-3" successMessage="New season activated.">
-                  <Field label="New season name" name="name" value="Ramadan 2027" />
+                  <Field label="New season name" maxLength={inputLimits.seasonName} name="name" value="Ramadan 2027" />
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Starts" name="startsOn" type="date" value="2027-02-08" />
                     <Field label="Ends" name="endsOn" type="date" value="2027-03-09" />
@@ -924,6 +934,37 @@ function AdminView({
                   <span>{row.delivered} del.</span>
                 </div>
               ))}
+            </div>
+          </Panel>
+
+          <Panel title="Distribution totals" kicker="Planning">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <ReportMetric label="Families" value={requestReport.families} />
+              <ReportMetric label="People" value={requestReport.householdMembers} />
+              <ReportMetric label="Approved food" value={`${requestReport.approvedWeightLbs} lb`} />
+              <ReportMetric label="Delivered food" value={`${requestReport.deliveredWeightLbs} lb`} />
+            </div>
+            <div className="mt-4 overflow-x-auto border-t border-[#dfe5e1] pt-3">
+              <table className="w-full min-w-[280px] text-left text-xs">
+                <thead className="text-[#66736f]">
+                  <tr>
+                    <th className="py-1 pr-2">Status</th>
+                    <th className="py-1 pr-2">Families</th>
+                    <th className="py-1 pr-2">People</th>
+                    <th className="py-1">Food</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#edf0ed]">
+                  {requestReport.statusRows.map((row) => (
+                    <tr key={row.status}>
+                      <td className="py-2 pr-2 font-semibold">{row.status}</td>
+                      <td className="py-2 pr-2">{row.families}</td>
+                      <td className="py-2 pr-2">{row.householdMembers}</td>
+                      <td className="py-2">{row.weightLbs} lb</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Panel>
 
@@ -1127,16 +1168,32 @@ function DriverView({
                   <p className="mt-1 break-all text-sm text-[#66736f]">{auth.email}</p>
                 </div>
               ) : (
-                <Field label="Full name" name="name" value="Safiya Noor" />
+                <Field label="Full name" maxLength={inputLimits.name} name="name" value="Safiya Noor" />
               )}
-              <Field label="Telephone/cellphone" name="phone" value={auth ? "" : "(555) 013-7720"} />
-              {!auth && <Field label="Email" name="email" type="email" value="safiya@example.com" />}
+              <Field label="Telephone/cellphone" maxLength={inputLimits.phone} name="phone" value={auth ? "" : "(555) 013-7720"} />
+              {!auth && <Field label="Email" maxLength={inputLimits.email} name="email" type="email" value="safiya@example.com" />}
               <SubmitButton label={currentApplication?.status === "denied" ? "Reapply" : "Submit application"} />
             </ActionForm>
           )}
         </Panel>
 
       <Panel
+        action={
+          assigned.length > 0 ? (
+            <button
+              className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm font-bold text-[#26312f]"
+              onClick={() =>
+                downloadCsv(
+                  routeManifestToCsv(assigned),
+                  routeManifestFilename(activeDriver?.name),
+                )
+              }
+              type="button"
+            >
+              Download route
+            </button>
+          ) : undefined
+        }
         title={auth?.role === "admin" ? "Assigned deliveries" : "Claimed by me"}
         kicker={activeDriver?.name ?? "Driver"}
       >
@@ -1320,17 +1377,39 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: stri
   );
 }
 
+function ReportMetric({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div>
+      <p className="text-lg font-bold text-[#17201f]">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-[#66736f]">{label}</p>
+    </div>
+  );
+}
+
 function StatusPill({ status }: { status: RequestStatus }) {
   return <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-bold ${statusTone[status]}`}>{status}</span>;
 }
 
-function Field({ label, name, type = "text", value }: { label: string; name: string; type?: string; value: string }) {
+function Field({
+  label,
+  maxLength,
+  name,
+  type = "text",
+  value,
+}: {
+  label: string;
+  maxLength?: number;
+  name: string;
+  type?: string;
+  value: string;
+}) {
   return (
     <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
       {label}
       <input
         className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
         defaultValue={value}
+        maxLength={maxLength}
         min={type === "number" ? 1 : undefined}
         name={name}
         required

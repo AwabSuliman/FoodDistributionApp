@@ -54,6 +54,11 @@ const bulkDriverApprovalMigrationUrl = new URL(
   import.meta.url,
 );
 const bulkDriverApprovalMigration = await readFile(bulkDriverApprovalMigrationUrl, "utf8");
+const inputLimitsMigrationUrl = new URL(
+  "../supabase/migrations/20260725000600_enforce_input_limits.sql",
+  import.meta.url,
+);
+const inputLimitsMigration = await readFile(inputLimitsMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -204,4 +209,16 @@ test("bulk driver approval is admin-only and locks every application", () => {
     bulkDriverApprovalMigration,
     /grant execute on function public\.bulk_approve_driver_applications\(uuid\[\]\) to authenticated/i,
   );
+});
+
+test("database limits oversized request, driver, and season input", () => {
+  for (const length of [40, 100, 120, 254, 300, 1000]) {
+    assert.match(inputLimitsMigration, new RegExp(`<= ${length}|between 1 and ${length}`, "i"));
+  }
+
+  assert.match(inputLimitsMigration, /alter table public\.distribution_requests/i);
+  assert.match(inputLimitsMigration, /alter table public\.driver_applications/i);
+  assert.match(inputLimitsMigration, /alter table public\.seasons/i);
+  assert.match(inputLimitsMigration, /household_size <= 100/i);
+  assert.match(inputLimitsMigration, /box_weight_lbs <= 1000/i);
 });

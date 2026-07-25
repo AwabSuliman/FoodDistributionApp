@@ -19,6 +19,7 @@ import {
   updateRequestDetails,
 } from "@/lib/data";
 import { PublicError, publicErrorMessage } from "@/lib/errors";
+import { inputLimits, validateRequiredText } from "@/lib/input-limits";
 import { parseSeasonInput } from "@/lib/season-input";
 import type { DriverApplicationDecision, RequestStatus } from "@/lib/types";
 
@@ -49,20 +50,47 @@ async function runDashboardAction(action: () => Promise<void>): Promise<Dashboar
   }
 }
 
-function readRequiredText(formData: FormData, field: string) {
-  const value = formData.get(field);
+function requiredText(value: unknown, label: string, maxLength: number) {
+  const result = validateRequiredText(value, label, maxLength);
+  if (!result.ok) throw new PublicError(result.error);
+  return result.data;
+}
 
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new PublicError(`${field} is required.`);
-  }
-
-  return value.trim();
+function readRequiredText(formData: FormData, field: string, label: string, maxLength: number) {
+  return requiredText(formData.get(field), label, maxLength);
 }
 
 function validateEmail(email: string) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new PublicError("Enter a valid email address.");
   }
+}
+
+function readRequestDetails(formData: FormData) {
+  const householdSize = Number(
+    readRequiredText(formData, "householdSize", "Household size", 4),
+  );
+  const email = readRequiredText(formData, "email", "Email", inputLimits.email);
+
+  if (!Number.isInteger(householdSize) || householdSize < 1 || householdSize > 100) {
+    throw new PublicError("Household size must be between 1 and 100.");
+  }
+
+  validateEmail(email);
+
+  return {
+    address: readRequiredText(formData, "address", "Address", inputLimits.address),
+    email,
+    householdSize,
+    instructions: readRequiredText(
+      formData,
+      "instructions",
+      "Delivery instructions",
+      inputLimits.instructions,
+    ),
+    phone: readRequiredText(formData, "phone", "Phone number", inputLimits.phone),
+    recipient: readRequiredText(formData, "recipient", "Full name", inputLimits.name),
+  };
 }
 
 function readRequestIds(formData: FormData) {
@@ -102,23 +130,7 @@ function readDriverIds(formData: FormData) {
 export async function submitRequest(formData: FormData): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
     const profile = await requireAuthenticatedRole(["recipient"]);
-    const householdSize = Number(readRequiredText(formData, "householdSize"));
-    const email = readRequiredText(formData, "email");
-
-    if (!Number.isInteger(householdSize) || householdSize < 1) {
-      throw new PublicError("Household size must be at least 1.");
-    }
-
-    validateEmail(email);
-
-    await createRequest(profile, {
-      address: readRequiredText(formData, "address"),
-      email,
-      householdSize,
-      instructions: readRequiredText(formData, "instructions"),
-      phone: readRequiredText(formData, "phone"),
-      recipient: readRequiredText(formData, "recipient"),
-    });
+    await createRequest(profile, readRequestDetails(formData));
   });
 }
 
@@ -149,7 +161,7 @@ export async function bulkAssignDeliveries(formData: FormData): Promise<Dashboar
     await requireAuthenticatedRole(["admin"]);
     await bulkAssignRequests(
       readRequestIds(formData),
-      readRequiredText(formData, "driver"),
+      readRequiredText(formData, "driver", "Driver", inputLimits.email),
     );
   });
 }
@@ -165,26 +177,18 @@ export async function editRequest(id: string, formData: FormData): Promise<Dashb
   return runDashboardAction(async () => {
     await requireAuthenticatedRole(["admin"]);
 
-    const householdSize = Number(readRequiredText(formData, "householdSize"));
-    const boxWeightLbs = Number(readRequiredText(formData, "boxWeightLbs"));
-    const email = readRequiredText(formData, "email");
+    const details = readRequestDetails(formData);
+    const boxWeightLbs = Number(
+      readRequiredText(formData, "boxWeightLbs", "Box weight", 5),
+    );
 
-    if (!Number.isInteger(householdSize) || householdSize < 1) {
-      throw new PublicError("Household size must be at least 1.");
+    if (!Number.isInteger(boxWeightLbs) || boxWeightLbs < 1 || boxWeightLbs > 1000) {
+      throw new PublicError("Box weight must be between 1 and 1,000 lb.");
     }
-    if (!Number.isInteger(boxWeightLbs) || boxWeightLbs < 1) {
-      throw new PublicError("Box weight must be at least 1 lb.");
-    }
-    validateEmail(email);
 
     await updateRequestDetails(id, {
-      address: readRequiredText(formData, "address"),
+      ...details,
       boxWeightLbs,
-      email,
-      householdSize,
-      instructions: readRequiredText(formData, "instructions"),
-      phone: readRequiredText(formData, "phone"),
-      recipient: readRequiredText(formData, "recipient"),
     });
   });
 }
@@ -193,22 +197,11 @@ export async function editOwnRequest(id: string, formData: FormData): Promise<Da
   return runDashboardAction(async () => {
     await requireAuthenticatedRole(["recipient"]);
 
-    const householdSize = Number(readRequiredText(formData, "householdSize"));
-    const email = readRequiredText(formData, "email");
-
-    if (!Number.isInteger(householdSize) || householdSize < 1) {
-      throw new PublicError("Household size must be at least 1.");
-    }
-    validateEmail(email);
+    const details = readRequestDetails(formData);
 
     await updateRequestDetails(id, {
-      address: readRequiredText(formData, "address"),
-      boxWeightLbs: householdSize * 7,
-      email,
-      householdSize,
-      instructions: readRequiredText(formData, "instructions"),
-      phone: readRequiredText(formData, "phone"),
-      recipient: readRequiredText(formData, "recipient"),
+      ...details,
+      boxWeightLbs: details.householdSize * 7,
     });
   });
 }
@@ -247,13 +240,10 @@ export async function updateDeliveryStatus(
 
     if (status === "Not delivered") {
       if (!formData) throw new PublicError("A reason is required when a delivery is missed.");
-      note = readRequiredText(formData, "reason");
+      note = readRequiredText(formData, "reason", "Missed-delivery reason", 500);
 
       if (note.length < 5) {
         throw new PublicError("The missed-delivery reason must be at least 5 characters.");
-      }
-      if (note.length > 500) {
-        throw new PublicError("The missed-delivery reason must be 500 characters or fewer.");
       }
     }
 
@@ -266,7 +256,7 @@ export async function claimDelivery(id: string, formData: FormData): Promise<Das
     const profile = await requireApprovedDriverOrAdmin();
 
     if (!profile || profile.role === "admin") {
-      await assignRequest(id, readRequiredText(formData, "driver"));
+      await assignRequest(id, readRequiredText(formData, "driver", "Driver", inputLimits.email));
     } else {
       await claimRequest(id, profile.name);
     }
@@ -288,15 +278,23 @@ export async function submitDriverApplication(formData: FormData): Promise<Dashb
       throw new PublicError("Admin accounts cannot submit driver applications.");
     }
 
-    const email = profile?.email ?? readRequiredText(formData, "email");
-    const name = profile?.name ?? readRequiredText(formData, "name");
+    const email = requiredText(
+      profile?.email ?? formData.get("email"),
+      "Email",
+      inputLimits.email,
+    );
+    const name = requiredText(
+      profile?.name ?? formData.get("name"),
+      "Full name",
+      inputLimits.name,
+    );
 
     validateEmail(email);
 
     await createDriverApplication(profile, {
       email,
       name,
-      phone: readRequiredText(formData, "phone"),
+      phone: readRequiredText(formData, "phone", "Phone number", inputLimits.phone),
     });
   });
 }
