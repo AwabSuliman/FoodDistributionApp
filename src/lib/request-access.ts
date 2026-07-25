@@ -10,6 +10,10 @@ export function canEditRequest(status: RequestStatus) {
   return status === "Submitted" || status === "Under review";
 }
 
+export function canRecipientEditRequest(role: Role | undefined, status: RequestStatus) {
+  return role === "recipient" && canEditRequest(status);
+}
+
 export function requestAssignmentAction(status: RequestStatus): "assign" | "unassign" | null {
   if (status === "Approved" || status === "Not delivered") return "assign";
   if (status === "Driver assigned" || status === "Heading to pickup") return "unassign";

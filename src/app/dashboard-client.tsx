@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   claimDelivery,
   createSeason,
+  editOwnRequest,
   editRequest,
   resolveDriverApplication,
   submitDriverApplication,
@@ -18,7 +19,12 @@ import type { AuthProfile } from "@/lib/auth";
 import { driverApplicationIdentifier } from "@/lib/driver-applications";
 import { getAvailableDriversForProfile, getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
-import { canEditRequest, canSubmitRecipientRequest, requestAssignmentAction } from "@/lib/request-access";
+import {
+  canEditRequest,
+  canRecipientEditRequest,
+  canSubmitRecipientRequest,
+  requestAssignmentAction,
+} from "@/lib/request-access";
 import { groupRequestsBySeason } from "@/lib/request-history";
 import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-progress";
 import { seasonDateRange } from "@/lib/season-input";
@@ -170,6 +176,9 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
 function RecipientView({ auth, requests }: { auth: AuthProfile | null; requests: DistributionRequest[] }) {
   const latestRequest = requests[0];
   const canSubmit = canSubmitRecipientRequest(auth?.role, Boolean(latestRequest));
+  const canEditOwnRequest = latestRequest
+    ? canRecipientEditRequest(auth?.role, latestRequest.status)
+    : false;
 
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -204,13 +213,50 @@ function RecipientView({ auth, requests }: { auth: AuthProfile | null; requests:
             </ActionForm>
           </>
         ) : (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-            <p className="font-bold">Your request has already been submitted.</p>
-            <p className="mt-2 text-sm leading-6">
-              Follow {latestRequest?.id} in the status panel. Contact the mosque if any household or delivery details
-              need to be corrected.
-            </p>
-          </div>
+          <>
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+              <p className="font-bold">Your request has already been submitted.</p>
+              <p className="mt-2 text-sm leading-6">
+                Follow {latestRequest?.id} in the status panel.{" "}
+                {canEditOwnRequest
+                  ? "You can correct the details below while the mosque reviews it."
+                  : "Contact the mosque if any household or delivery details need to be corrected."}
+              </p>
+            </div>
+            {canEditOwnRequest && latestRequest && (
+              <div className="mt-5 border-t border-[#dfe5e1] pt-5">
+                <h3 className="font-bold text-[#26312f]">Update request details</h3>
+                <ActionForm
+                  action={editOwnRequest.bind(null, latestRequest.recordId ?? latestRequest.id)}
+                  className="mt-4 grid gap-4"
+                  successMessage="Request details updated."
+                >
+                  <Field label="Full name" name="recipient" value={latestRequest.recipient} />
+                  <Field label="Address" name="address" value={latestRequest.address} />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Telephone/cellphone" name="phone" value={latestRequest.phone} />
+                    <Field label="Email" name="email" type="email" value={latestRequest.email} />
+                  </div>
+                  <Field
+                    label="Household members"
+                    name="householdSize"
+                    type="number"
+                    value={String(latestRequest.householdSize)}
+                  />
+                  <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+                    Delivery instructions
+                    <textarea
+                      className="min-h-28 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+                      defaultValue={latestRequest.instructions}
+                      name="instructions"
+                      required
+                    />
+                  </label>
+                  <SubmitButton label="Save changes" />
+                </ActionForm>
+              </div>
+            )}
+          </>
         )}
       </Panel>
 

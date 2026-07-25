@@ -5,6 +5,7 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 ## What It Does
 
 - Recipients can submit a food box request with household size, contact details, and delivery instructions.
+- Recipients can correct their own request details until the request is approved.
 - Admins can review, approve, deny, search, and filter requests.
 - Admins can review the full volunteer roster and approve or deny driver applications.
 - Admins can assign and unassign deliveries directly from request details.
@@ -102,6 +103,8 @@ Driver applications use the signed-in account's name, email, and user ID. Applic
 Supabase email confirmation links return through `/auth/callback`, which exchanges the auth code for a session and redirects back to the original protected page. In Supabase Auth settings, add your `NEXT_PUBLIC_SITE_URL` value to the allowed redirect URLs.
 
 The database policies scope recipients to their own requests, approved drivers to available or assigned deliveries, and admins to operational data. Delivery claims and state transitions execute atomically in PostgreSQL to prevent two drivers from claiming the same request.
+
+Recipients can update only their own submitted or under-review request. The protected database function locks edits after approval and recalculates box weight from household size; admins retain control of manual box-weight adjustments.
 
 Supabase Realtime keeps open dashboards current across users. Realtime change delivery still follows the table row-level security policies, so each account receives only changes it is allowed to read.
 

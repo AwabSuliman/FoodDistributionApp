@@ -304,6 +304,41 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_request_details: {
+        Args: {
+          new_address: string
+          new_email: string
+          new_household_size: number
+          new_instructions: string
+          new_phone: string
+          new_recipient_name: string
+          requested_box_weight_lbs: number
+          target_request_id: string
+        }
+        Returns: {
+          address: string
+          assigned_driver_id: string | null
+          box_weight_lbs: number
+          created_at: string
+          email: string
+          household_size: number
+          id: string
+          instructions: string
+          owner_id: string
+          phone: string
+          recipient_name: string
+          request_number: number
+          season_id: string
+          status: Database["public"]["Enums"]["request_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "distribution_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       unclaim_delivery: {
         Args: { target_request_id: string }
         Returns: {

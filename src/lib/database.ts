@@ -320,23 +320,17 @@ export async function setDatabaseRequestStatus(id: string, status: RequestStatus
 
 export async function updateDatabaseRequestDetails(id: string, input: RequestEditInput) {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("distribution_requests")
-    .update({
-      address: input.address,
-      box_weight_lbs: input.boxWeightLbs,
-      email: input.email,
-      household_size: input.householdSize,
-      instructions: input.instructions,
-      phone: input.phone,
-      recipient_name: input.recipient,
-    })
-    .eq("id", id)
-    .in("status", ["submitted", "under_review"])
-    .select("id")
-    .maybeSingle();
+  const { error } = await supabase.rpc("update_request_details", {
+    new_address: input.address,
+    new_email: input.email,
+    new_household_size: input.householdSize,
+    new_instructions: input.instructions,
+    new_phone: input.phone,
+    new_recipient_name: input.recipient,
+    requested_box_weight_lbs: input.boxWeightLbs,
+    target_request_id: id,
+  });
   throwDatabaseError(error, "Unable to update the request details.");
-  if (!data) throw new PublicError("Only submitted requests can be edited.");
 }
 
 export async function activateDatabaseSeason(input: SeasonInput) {

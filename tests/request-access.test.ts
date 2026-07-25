@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canEditRequest,
+  canRecipientEditRequest,
   canSubmitRecipientRequest,
   requestAssignmentAction,
 } from "../src/lib/request-access.ts";
@@ -26,6 +27,14 @@ test("request details are editable only before approval", () => {
   assert.equal(canEditRequest("Approved"), false);
   assert.equal(canEditRequest("Out for delivery"), false);
   assert.equal(canEditRequest("Delivered"), false);
+});
+
+test("only recipients see the self-service request editor", () => {
+  assert.equal(canRecipientEditRequest("recipient", "Submitted"), true);
+  assert.equal(canRecipientEditRequest("recipient", "Under review"), true);
+  assert.equal(canRecipientEditRequest("recipient", "Approved"), false);
+  assert.equal(canRecipientEditRequest("driver", "Submitted"), false);
+  assert.equal(canRecipientEditRequest("admin", "Submitted"), false);
 });
 
 test("admins can assign available requests and release early assignments", () => {

@@ -29,6 +29,11 @@ const realtimeMigrationUrl = new URL(
   import.meta.url,
 );
 const realtimeMigration = await readFile(realtimeMigrationUrl, "utf8");
+const recipientEditsMigrationUrl = new URL(
+  "../supabase/migrations/20260725000100_allow_recipient_request_edits.sql",
+  import.meta.url,
+);
+const recipientEditsMigration = await readFile(recipientEditsMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -119,4 +124,15 @@ test("dashboard tables are added to the realtime publication safely", () => {
   assert.match(realtimeMigration, /pubname = 'supabase_realtime'/i);
   assert.match(realtimeMigration, /if not exists/i);
   assert.match(realtimeMigration, /alter publication supabase_realtime add table/i);
+});
+
+test("recipients can edit only their own pre-approval requests", () => {
+  assert.match(recipientEditsMigration, /current_request\.owner_id <> auth\.uid\(\)/i);
+  assert.match(recipientEditsMigration, /app_metadata' ->> 'role'\) = 'recipient'/i);
+  assert.match(recipientEditsMigration, /status not in \('submitted', 'under_review'\)/i);
+  assert.match(recipientEditsMigration, /else new_household_size \* 7/i);
+  assert.match(
+    recipientEditsMigration,
+    /grant execute on function public\.update_request_details\([^)]+\) to authenticated/i,
+  );
 });

@@ -51,6 +51,31 @@ begin
 end;
 $$;
 
+select public.update_request_details(
+  '99999999-0000-0000-0000-000000000201',
+  'QA Recipient Updated',
+  '555-0198',
+  'qa-recipient-updated@invalid.test',
+  '101 QA Test Lane',
+  5,
+  999,
+  'Updated by the request owner'
+);
+
+do $$
+declare
+  updated_address text;
+  updated_box_weight integer;
+begin
+  select address, box_weight_lbs into updated_address, updated_box_weight
+  from public.distribution_requests
+  where id = '99999999-0000-0000-0000-000000000201';
+
+  if updated_address <> '101 QA Test Lane' then raise exception 'recipient request edit was not saved'; end if;
+  if updated_box_weight <> 35 then raise exception 'recipient changed the calculated box weight'; end if;
+end;
+$$;
+
 do $$
 declare
   driver_application_was_blocked boolean := false;
@@ -82,6 +107,7 @@ select set_config(
 do $$
 declare
   claim_was_blocked boolean := false;
+  request_edit_was_blocked boolean := false;
   visible_requests integer;
 begin
   select count(*) into visible_requests from public.distribution_requests;
@@ -94,6 +120,23 @@ begin
   end;
 
   if not claim_was_blocked then raise exception 'unapproved driver can claim requests'; end if;
+
+  begin
+    perform public.update_request_details(
+      '99999999-0000-0000-0000-000000000201',
+      'Driver Edit',
+      '555-0000',
+      'driver-edit@invalid.test',
+      'Driver Edit Lane',
+      1,
+      7,
+      'Driver should not be able to edit'
+    );
+  exception when others then
+    request_edit_was_blocked := true;
+  end;
+
+  if not request_edit_was_blocked then raise exception 'driver edited a recipient request'; end if;
 end;
 $$;
 

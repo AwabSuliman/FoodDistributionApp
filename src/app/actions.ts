@@ -124,6 +124,30 @@ export async function editRequest(id: string, formData: FormData): Promise<Dashb
   });
 }
 
+export async function editOwnRequest(id: string, formData: FormData): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["recipient"]);
+
+    const householdSize = Number(readRequiredText(formData, "householdSize"));
+    const email = readRequiredText(formData, "email");
+
+    if (!Number.isInteger(householdSize) || householdSize < 1) {
+      throw new PublicError("Household size must be at least 1.");
+    }
+    validateEmail(email);
+
+    await updateRequestDetails(id, {
+      address: readRequiredText(formData, "address"),
+      boxWeightLbs: householdSize * 7,
+      email,
+      householdSize,
+      instructions: readRequiredText(formData, "instructions"),
+      phone: readRequiredText(formData, "phone"),
+      recipient: readRequiredText(formData, "recipient"),
+    });
+  });
+}
+
 export async function createSeason(formData: FormData): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
     await requireAuthenticatedRole(["admin"]);
