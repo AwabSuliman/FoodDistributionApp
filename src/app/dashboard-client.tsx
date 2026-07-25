@@ -18,6 +18,7 @@ import type { AuthProfile } from "@/lib/auth";
 import { getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
 import { canEditRequest, canSubmitRecipientRequest } from "@/lib/request-access";
+import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-progress";
 import type { DashboardData, DeliveryActivity, DistributionRequest, RequestStatus, Role } from "@/lib/types";
 
 const roleOptions: { role: Role; label: string; helper: string }[] = [
@@ -779,20 +780,7 @@ function RequestTimeline({ request }: { request?: DistributionRequest }) {
     );
   }
 
-  const progressOrder: RequestStatus[] = [
-    "Submitted",
-    "Under review",
-    "Approved",
-    "Driver assigned",
-    "Heading to pickup",
-    "Picked up",
-    "Out for delivery",
-    "Delivered",
-  ];
-  const currentIndex =
-    request.status === "Denied" || request.status === "Not delivered"
-      ? progressOrder.indexOf("Approved")
-      : progressOrder.indexOf(request.status);
+  const currentIndex = getRequestProgressIndex(request.status);
   const items: { detail: string; status: RequestStatus }[] = [
     { status: "Submitted", detail: "Request received by the mosque." },
     { status: "Under review", detail: "Admin reviews family information and box weight." },
@@ -823,7 +811,7 @@ function RequestTimeline({ request }: { request?: DistributionRequest }) {
           <span
             aria-hidden="true"
             className={`mt-1 h-3 w-3 rounded-full border ${
-              progressOrder.indexOf(item.status) <= currentIndex
+              requestProgressOrder.indexOf(item.status) <= currentIndex
                 ? "border-[#1f5d54] bg-[#1f5d54]"
                 : "border-[#b8c4bf] bg-white"
             }`}
