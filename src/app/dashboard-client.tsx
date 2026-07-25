@@ -15,6 +15,7 @@ import {
 import type { DashboardActionResult } from "./actions";
 import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
+import { driverApplicationIdentifier } from "@/lib/driver-applications";
 import { getAvailableDriversForProfile, getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
 import { canEditRequest, canSubmitRecipientRequest } from "@/lib/request-access";
@@ -474,11 +475,14 @@ function AdminView({
                     <p className="text-sm text-[#66736f]">{driver.email}</p>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <ActionButton
-                        action={resolveDriverApplication.bind(null, driver.email, "approved")}
+                        action={resolveDriverApplication.bind(null, driverApplicationIdentifier(driver), "approved")}
                         label="Approve"
                         primary
                       />
-                      <ActionButton action={resolveDriverApplication.bind(null, driver.email, "denied")} label="Deny" />
+                      <ActionButton
+                        action={resolveDriverApplication.bind(null, driverApplicationIdentifier(driver), "denied")}
+                        label="Deny"
+                      />
                     </div>
                   </div>
                 ))

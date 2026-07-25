@@ -390,11 +390,15 @@ export async function createDatabaseDriverApplication(profile: AuthProfile, inpu
   );
 }
 
-export async function resolveDatabaseDriverApplication(email: string, decision: DriverApplicationDecision) {
+export async function resolveDatabaseDriverApplication(userId: string, decision: DriverApplicationDecision) {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("driver_applications")
     .update({ reviewed_at: new Date().toISOString(), reviewed_by: (await supabase.auth.getUser()).data.user?.id, status: decision })
-    .eq("email", email);
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .select("user_id")
+    .maybeSingle();
   throwDatabaseError(error, "Unable to resolve the driver application.");
+  if (!data) throw new PublicError("This driver application has already been reviewed.");
 }

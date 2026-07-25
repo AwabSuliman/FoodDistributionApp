@@ -85,7 +85,7 @@ export async function createDriverApplication(profile: AuthProfile | null, input
   return createFileDriverApplication(input);
 }
 
-export async function resolvePendingDriver(email: string, decision: DriverApplicationDecision) {
-  if (getSupabaseConfig()) return resolveDatabaseDriverApplication(email, decision);
-  return resolveFilePendingDriver(email, decision);
+export async function resolvePendingDriver(driverIdentifier: string, decision: DriverApplicationDecision) {
+  if (getSupabaseConfig()) return resolveDatabaseDriverApplication(driverIdentifier, decision);
+  return resolveFilePendingDriver(driverIdentifier, decision);
 }

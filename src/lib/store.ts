@@ -11,6 +11,7 @@ import type {
   RequestStatus,
 } from "./types";
 import { PublicError } from "./errors";
+import { matchesDriverApplication } from "./driver-applications";
 
 type AppState = {
   approvedDrivers: PendingDriver[];
@@ -303,27 +304,37 @@ export async function createDriverApplication(input: DriverApplicationInput) {
   });
 }
 
-export async function resolvePendingDriver(email: string, decision: DriverApplicationDecision) {
+export async function resolvePendingDriver(driverIdentifier: string, decision: DriverApplicationDecision) {
   const state = await readState();
-  const driver = state.pendingDrivers.find((pendingDriver) => pendingDriver.email === email);
+  const driver = state.pendingDrivers.find((pendingDriver) =>
+    matchesDriverApplication(pendingDriver, driverIdentifier),
+  );
 
   if (!driver) {
-    return;
+    throw new PublicError("This driver application has already been reviewed.");
   }
 
   const approvedDrivers =
-    decision === "approved" && !state.approvedDrivers.some((approvedDriver) => approvedDriver.email === email)
+    decision === "approved" &&
+    !state.approvedDrivers.some((approvedDriver) => matchesDriverApplication(approvedDriver, driverIdentifier))
       ? [...state.approvedDrivers, driver]
-      : state.approvedDrivers.filter((approvedDriver) => approvedDriver.email !== email);
+      : state.approvedDrivers.filter(
+          (approvedDriver) => !matchesDriverApplication(approvedDriver, driverIdentifier),
+        );
   const deniedDrivers =
-    decision === "denied" && !state.deniedDrivers.some((deniedDriver) => deniedDriver.email === email)
+    decision === "denied" &&
+    !state.deniedDrivers.some((deniedDriver) => matchesDriverApplication(deniedDriver, driverIdentifier))
       ? [...state.deniedDrivers, driver]
-      : state.deniedDrivers.filter((deniedDriver) => deniedDriver.email !== email);
+      : state.deniedDrivers.filter(
+          (deniedDriver) => !matchesDriverApplication(deniedDriver, driverIdentifier),
+        );
 
   await writeState({
     ...state,
     approvedDrivers,
     deniedDrivers,
-    pendingDrivers: state.pendingDrivers.filter((driver) => driver.email !== email),
+    pendingDrivers: state.pendingDrivers.filter(
+      (pendingDriver) => !matchesDriverApplication(pendingDriver, driverIdentifier),
+    ),
   });
 }

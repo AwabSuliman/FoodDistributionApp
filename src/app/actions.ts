@@ -182,7 +182,7 @@ export async function submitDriverApplication(formData: FormData): Promise<Dashb
 }
 
 export async function resolveDriverApplication(
-  email: string,
+  driverIdentifier: string,
   decision: DriverApplicationDecision,
 ): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
@@ -192,6 +192,6 @@ export async function resolveDriverApplication(
       throw new PublicError("Unsupported driver application decision.");
     }
 
-    await resolvePendingDriver(email, decision);
+    await resolvePendingDriver(driverIdentifier, decision);
   });
 }
