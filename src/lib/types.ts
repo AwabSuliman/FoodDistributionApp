@@ -29,6 +29,8 @@ export type DistributionRequest = {
   householdSize: number;
   boxWeight: string;
   instructions: string;
+  seasonId?: string;
+  seasonName?: string;
   status: RequestStatus;
   driver?: string;
   deliveryActivity?: DeliveryActivity[];

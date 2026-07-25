@@ -19,6 +19,7 @@ import { driverApplicationIdentifier } from "@/lib/driver-applications";
 import { getAvailableDriversForProfile, getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
 import { canEditRequest, canSubmitRecipientRequest, requestAssignmentAction } from "@/lib/request-access";
+import { groupRequestsBySeason } from "@/lib/request-history";
 import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-progress";
 import type { DashboardData, DeliveryActivity, DistributionRequest, RequestStatus, Role } from "@/lib/types";
 
@@ -238,6 +239,7 @@ function AdminView({
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "All">("All");
   const [query, setQuery] = useState("");
   const [selectedRequestId, setSelectedRequestId] = useState("");
+  const [selectedHistorySeasonId, setSelectedHistorySeasonId] = useState("");
   const filteredRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -255,6 +257,9 @@ function AdminView({
   const selectedRequest = requests.find((request) => request.id === selectedRequestId);
   const selectedRequestCanBeEdited = selectedRequest ? canEditRequest(selectedRequest.status) : false;
   const selectedRequestAssignmentAction = selectedRequest ? requestAssignmentAction(selectedRequest.status) : null;
+  const historyGroups = useMemo(() => groupRequestsBySeason(requestHistory), [requestHistory]);
+  const selectedHistoryGroup =
+    historyGroups.find((group) => group.id === selectedHistorySeasonId) ?? historyGroups[0];
 
   function exportRequests() {
     const blob = new Blob(["\uFEFF", requestsToCsv(filteredRequests)], { type: "text/csv;charset=utf-8" });
@@ -262,6 +267,20 @@ function AdminView({
     const link = document.createElement("a");
     link.href = url;
     link.download = requestCsvFilename(activeSeason?.name);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportHistory() {
+    if (!selectedHistoryGroup) return;
+
+    const blob = new Blob(["\uFEFF", requestsToCsv(selectedHistoryGroup.requests)], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = requestCsvFilename(selectedHistoryGroup.name);
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -566,17 +585,64 @@ function AdminView({
             </div>
           </Panel>
 
-          <Panel title="Past seasons" kicker="History">
-            {requestHistory.length === 0 ? (
+          <Panel
+            title="Past seasons"
+            kicker="History"
+            action={
+              selectedHistoryGroup ? (
+                <button
+                  className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm font-bold text-[#26312f]"
+                  onClick={exportHistory}
+                  type="button"
+                >
+                  Export season
+                </button>
+              ) : undefined
+            }
+          >
+            {historyGroups.length === 0 ? (
               <p className="text-sm font-semibold text-[#53645f]">No archived requests yet.</p>
             ) : (
-              <div className="grid gap-2">
-                {requestHistory.slice(0, 8).map((request) => (
-                  <div className="flex items-center justify-between gap-3 border-b border-[#edf0ed] pb-2 text-sm last:border-0" key={request.recordId ?? request.id}>
-                    <span><strong>{request.id}</strong> {request.recipient}</span>
-                    <StatusPill status={request.status} />
-                  </div>
-                ))}
+              <div className="grid gap-3">
+                <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+                  Distribution season
+                  <select
+                    className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+                    onChange={(event) => setSelectedHistorySeasonId(event.target.value)}
+                    value={selectedHistoryGroup?.id ?? ""}
+                  >
+                    {historyGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name} ({group.requests.length})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[#dfe5e1] text-xs uppercase text-[#66736f]">
+                        <th className="py-2 pr-3">Request</th>
+                        <th className="py-2 pr-3">Status</th>
+                        <th className="py-2">Driver</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#edf0ed]">
+                      {selectedHistoryGroup?.requests.map((request) => (
+                        <tr key={request.recordId ?? request.id}>
+                          <td className="py-2 pr-3">
+                            <span className="font-bold">{request.id}</span>
+                            <span className="block text-[#66736f]">{request.recipient}</span>
+                          </td>
+                          <td className="py-2 pr-3">
+                            <StatusPill status={request.status} />
+                          </td>
+                          <td className="py-2">{request.driver ?? "Unassigned"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </Panel>
