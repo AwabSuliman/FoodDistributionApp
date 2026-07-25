@@ -12,6 +12,8 @@ import {
   createDatabaseDriverApplication,
   createDatabaseRequest,
   getDatabaseDashboardData,
+  markAllDatabaseNotificationsRead,
+  markDatabaseNotificationRead,
   resolveDatabaseDriverApplication,
   setDatabaseRequestIntake,
   setDatabaseDeliveryStatus,
@@ -25,6 +27,8 @@ import {
   createDriverApplication as createFileDriverApplication,
   createRequest as createFileRequest,
   getDashboardData as getFileDashboardData,
+  markAllNotificationsRead as markAllFileNotificationsRead,
+  markNotificationRead as markFileNotificationRead,
   resolvePendingDriver as resolveFilePendingDriver,
   setRequestStatus as setFileRequestStatus,
   updateRequestDetails as updateFileRequestDetails,
@@ -122,4 +126,14 @@ export async function bulkApproveDrivers(driverIdentifiers: string[]) {
   for (const identifier of driverIdentifiers) {
     await resolveFilePendingDriver(identifier, "approved");
   }
+}
+
+export async function markNotificationRead(id: string) {
+  if (getSupabaseConfig()) return markDatabaseNotificationRead(id);
+  return markFileNotificationRead(id);
+}
+
+export async function markAllNotificationsRead() {
+  if (getSupabaseConfig()) return markAllDatabaseNotificationsRead();
+  return markAllFileNotificationsRead();
 }

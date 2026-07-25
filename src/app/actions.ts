@@ -11,6 +11,8 @@ import {
   claimRequest,
   createDriverApplication,
   createRequest,
+  markAllNotificationsRead,
+  markNotificationRead,
   resolvePendingDriver,
   setDeliveryStatus,
   setRequestIntake,
@@ -311,5 +313,24 @@ export async function resolveDriverApplication(
     }
 
     await resolvePendingDriver(driverIdentifier, decision);
+  });
+}
+
+export async function markNotificationAsRead(id: string): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+
+    if (id.trim() === "" || id.length > 100) {
+      throw new PublicError("Invalid notification.");
+    }
+
+    await markNotificationRead(id);
+  });
+}
+
+export async function markEveryNotificationAsRead(): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+    await markAllNotificationsRead();
   });
 }

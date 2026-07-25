@@ -59,6 +59,11 @@ const inputLimitsMigrationUrl = new URL(
   import.meta.url,
 );
 const inputLimitsMigration = await readFile(inputLimitsMigrationUrl, "utf8");
+const notificationsMigrationUrl = new URL(
+  "../supabase/migrations/20260725000700_add_in_app_notifications.sql",
+  import.meta.url,
+);
+const notificationsMigration = await readFile(notificationsMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -221,4 +226,18 @@ test("database limits oversized request, driver, and season input", () => {
   assert.match(inputLimitsMigration, /alter table public\.seasons/i);
   assert.match(inputLimitsMigration, /household_size <= 100/i);
   assert.match(inputLimitsMigration, /box_weight_lbs <= 1000/i);
+});
+
+test("in-app notifications are private, automatic, and dismissible", () => {
+  assert.match(notificationsMigration, /create table public\.notifications/i);
+  assert.match(notificationsMigration, /alter table public\.notifications enable row level security/i);
+  assert.match(notificationsMigration, /using \(user_id = \(select auth\.uid\(\)\)\)/i);
+  assert.match(notificationsMigration, /revoke insert, update, delete on public\.notifications from authenticated/i);
+  assert.match(notificationsMigration, /function public\.notify_request_change/i);
+  assert.match(notificationsMigration, /function public\.notify_driver_application_change/i);
+  assert.match(notificationsMigration, /new\.status = 'not_delivered'/i);
+  assert.match(notificationsMigration, /new\.assigned_driver_id is distinct from old\.assigned_driver_id/i);
+  assert.match(notificationsMigration, /function public\.mark_notification_read\(target_notification_id bigint\)/i);
+  assert.match(notificationsMigration, /where id = target_notification_id\s+and user_id = auth\.uid\(\)/i);
+  assert.match(notificationsMigration, /alter publication supabase_realtime add table public\.notifications/i);
 });

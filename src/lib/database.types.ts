@@ -163,6 +163,47 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: number
+          kind: string
+          message: string
+          read_at: string | null
+          request_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          kind: string
+          message: string
+          read_at?: string | null
+          request_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          kind?: string
+          message?: string
+          read_at?: string | null
+          request_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seasons: {
         Row: {
           accepting_requests: boolean
@@ -330,6 +371,8 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_approved_driver: { Args: { candidate?: string }; Returns: boolean }
+      mark_all_notifications_read: { Args: never; Returns: undefined }
+      mark_notification_read: { Args: { target_notification_id: number }; Returns: undefined }
       set_delivery_status: {
         Args: {
           next_status: Database["public"]["Enums"]["request_status"]

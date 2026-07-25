@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
+  AppNotification,
   DashboardData,
   DistributionRequest,
   DriverApplicationDecision,
@@ -18,6 +19,7 @@ type AppState = {
   approvedDrivers: PendingDriver[];
   deniedDrivers: PendingDriver[];
   nextRequestNumber: number;
+  notifications: AppNotification[];
   pendingDrivers: PendingDriver[];
   requests: DistributionRequest[];
 };
@@ -43,6 +45,43 @@ const initialState: AppState = {
   ],
   deniedDrivers: [],
   nextRequestNumber: 1043,
+  notifications: [
+    {
+      id: "demo-4",
+      kind: "delivery",
+      message: "MWI-1040 needs another delivery attempt.",
+      occurred: "44 min ago",
+      read: false,
+      requestId: "MWI-1040",
+      title: "Repeat delivery available",
+    },
+    {
+      id: "demo-3",
+      kind: "request",
+      message: "MWI-1039 is ready for review.",
+      occurred: "1 hr ago",
+      read: false,
+      requestId: "MWI-1039",
+      title: "New food request",
+    },
+    {
+      id: "demo-2",
+      kind: "driver",
+      message: "Zain Malik is waiting for approval.",
+      occurred: "Today",
+      read: true,
+      title: "New driver application",
+    },
+    {
+      id: "demo-1",
+      kind: "delivery",
+      message: "MWI-1038 was marked delivered.",
+      occurred: "Today",
+      read: true,
+      requestId: "MWI-1038",
+      title: "Delivery completed",
+    },
+  ],
   requests: [
     {
       id: "MWI-1042",
@@ -131,6 +170,7 @@ function normalizeState(state: Partial<AppState>): AppState {
     approvedDrivers: state.approvedDrivers ?? initialState.approvedDrivers,
     deniedDrivers: state.deniedDrivers ?? [],
     nextRequestNumber: state.nextRequestNumber ?? initialState.nextRequestNumber,
+    notifications: state.notifications ?? initialState.notifications,
     pendingDrivers: state.pendingDrivers ?? [],
     requests: state.requests ?? [],
   };
@@ -199,6 +239,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     approvedDrivers: state.approvedDrivers,
     deniedDrivers: state.deniedDrivers,
     familySizeRows: makeFamilySizeRows(state.requests),
+    notifications: state.notifications,
     pendingDrivers: state.pendingDrivers,
     requests: state.requests,
   };
@@ -397,5 +438,25 @@ export async function resolvePendingDriver(driverIdentifier: string, decision: D
     pendingDrivers: state.pendingDrivers.filter(
       (pendingDriver) => !matchesDriverApplication(pendingDriver, driverIdentifier),
     ),
+  });
+}
+
+export async function markNotificationRead(id: string) {
+  const state = await readState();
+
+  await writeState({
+    ...state,
+    notifications: state.notifications.map((notification) =>
+      notification.id === id ? { ...notification, read: true } : notification,
+    ),
+  });
+}
+
+export async function markAllNotificationsRead() {
+  const state = await readState();
+
+  await writeState({
+    ...state,
+    notifications: state.notifications.map((notification) => ({ ...notification, read: true })),
   });
 }

@@ -3,6 +3,7 @@ import "server-only";
 import type { AuthProfile } from "./auth";
 import { createSupabaseServerClient } from "./auth";
 import type {
+  AppNotification,
   DashboardData,
   DeliveryActivity,
   DistributionRequest,
@@ -72,6 +73,16 @@ type DeliveryEventRow = {
   notes: string | null;
   request_id: string;
   to_status: DatabaseRequestStatus | null;
+};
+
+type NotificationRow = {
+  created_at: string;
+  id: number;
+  kind: AppNotification["kind"];
+  message: string;
+  read_at: string | null;
+  request_id: string | null;
+  title: string;
 };
 
 type DatabaseRequestStatus =
@@ -165,6 +176,23 @@ function toSeason(row: SeasonRow): Season {
   };
 }
 
+function toNotification(
+  row: NotificationRow,
+  requestNumbers: Map<string, number>,
+): AppNotification {
+  const requestNumber = row.request_id ? requestNumbers.get(row.request_id) : undefined;
+
+  return {
+    id: String(row.id),
+    kind: row.kind,
+    message: row.message,
+    occurred: relativeTime(row.created_at),
+    read: Boolean(row.read_at),
+    requestId: requestNumber ? `MWI-${requestNumber}` : undefined,
+    title: row.title,
+  };
+}
+
 function toRequest(
   row: RequestRow,
   driverNames: Map<string, string>,
@@ -233,7 +261,7 @@ function makeFamilySizeRows(requests: DistributionRequest[]): FamilySizeRow[] {
 
 export async function getDatabaseDashboardData(profile: AuthProfile): Promise<DashboardData> {
   const supabase = await createSupabaseServerClient();
-  const [seasonsResult, driversResult, requestsResult, eventsResult] = await Promise.all([
+  const [seasonsResult, driversResult, requestsResult, eventsResult, notificationsResult] = await Promise.all([
     supabase
       .from("seasons")
       .select("id,name,starts_on,ends_on,is_active,accepting_requests")
@@ -244,12 +272,18 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
       .from("delivery_events")
       .select("id,request_id,actor_id,event_type,from_status,to_status,notes,created_at")
       .order("created_at", { ascending: true }),
+    supabase
+      .from("notifications")
+      .select("id,kind,title,message,request_id,read_at,created_at")
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   throwDatabaseError(seasonsResult.error, "Unable to load distribution seasons.");
   throwDatabaseError(driversResult.error, "Unable to load drivers.");
   throwDatabaseError(requestsResult.error, "Unable to load requests.");
   throwDatabaseError(eventsResult.error, "Unable to load delivery activity.");
+  throwDatabaseError(notificationsResult.error, "Unable to load notifications.");
 
   const drivers = (driversResult.data ?? []) as DriverRow[];
   const driverNames = new Map(drivers.map((driver) => [driver.user_id, driver.name]));
@@ -257,6 +291,7 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
   const activeSeason = seasons.find((season) => season.is_active);
   const seasonNames = new Map(seasons.map((season) => [season.id, season.name]));
   const requestRows = (requestsResult.data ?? []) as RequestRow[];
+  const requestNumbers = new Map(requestRows.map((request) => [request.id, request.request_number]));
   const activitiesByRequest = groupDeliveryActivity((eventsResult.data ?? []) as DeliveryEventRow[], driverNames);
   const activeSeasonId = activeSeason?.id;
   const requests = requestRows
@@ -273,6 +308,9 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
     currentDriverApplication: ownApplication ? { ...toDriver(ownApplication), status: ownApplication.status } : undefined,
     deniedDrivers: profile.role === "admin" ? drivers.filter((driver) => driver.status === "denied").map(toDriver) : [],
     familySizeRows: profile.role === "admin" ? makeFamilySizeRows(requests) : [],
+    notifications: ((notificationsResult.data ?? []) as NotificationRow[]).map((notification) =>
+      toNotification(notification, requestNumbers),
+    ),
     pendingDrivers: profile.role === "admin" ? drivers.filter((driver) => driver.status === "pending").map(toDriver) : [],
     requestHistory: profile.role === "admin" ? requestHistory : [],
     requests,
@@ -443,4 +481,23 @@ export async function bulkApproveDatabaseDrivers(userIds: string[]) {
     target_user_ids: userIds,
   });
   throwDatabaseError(error, "Unable to approve the selected driver applications.");
+}
+
+export async function markDatabaseNotificationRead(id: string) {
+  const notificationId = Number(id);
+  if (!Number.isSafeInteger(notificationId) || notificationId < 1) {
+    throw new PublicError("Invalid notification.");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("mark_notification_read", {
+    target_notification_id: notificationId,
+  });
+  throwDatabaseError(error, "Unable to mark the notification as read.");
+}
+
+export async function markAllDatabaseNotificationsRead() {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("mark_all_notifications_read");
+  throwDatabaseError(error, "Unable to mark notifications as read.");
 }

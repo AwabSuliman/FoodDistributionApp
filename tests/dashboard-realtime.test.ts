@@ -7,6 +7,7 @@ test("live dashboards listen to every operational data source", () => {
     "delivery_events",
     "distribution_requests",
     "driver_applications",
+    "notifications",
     "seasons",
   ]);
 });

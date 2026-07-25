@@ -9,6 +9,8 @@ import {
   createSeason,
   editOwnRequest,
   editRequest,
+  markEveryNotificationAsRead,
+  markNotificationAsRead,
   resolveDriverApplication,
   submitDriverApplication,
   submitRequest,
@@ -42,6 +44,7 @@ import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-pro
 import { seasonDateRange } from "@/lib/season-input";
 import { LiveDashboardRefresh } from "./live-dashboard-refresh";
 import type {
+  AppNotification,
   DashboardData,
   DeliveryActivity,
   DistributionRequest,
@@ -156,13 +159,16 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
                   </button>
                 ))}
               </nav>
-              {auth && (
-                <form action={signOut} className="justify-self-start lg:justify-self-end">
-                  <button className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm font-bold text-[#26312f]">
-                    Sign out
-                  </button>
-                </form>
-              )}
+              <div className="flex flex-wrap items-start gap-2 lg:justify-end">
+                <NotificationCenter notifications={data.notifications} />
+                {auth && (
+                  <form action={signOut}>
+                    <button className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm font-bold text-[#26312f]">
+                      Sign out
+                    </button>
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -202,6 +208,125 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
         </div>
       </div>
     </main>
+  );
+}
+
+function NotificationCenter({ notifications }: { notifications: AppNotification[] }) {
+  const [open, setOpen] = useState(false);
+  const [optimisticallyRead, setOptimisticallyRead] = useState<Set<string>>(() => new Set());
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const items = notifications.map((notification) =>
+    optimisticallyRead.has(notification.id) ? { ...notification, read: true } : notification,
+  );
+  const unreadCount = items.filter((notification) => !notification.read).length;
+
+  async function markOne(id: string) {
+    setPendingId(id);
+    setMessage("");
+    const result = await markNotificationAsRead(id);
+
+    if (result.ok) {
+      setOptimisticallyRead((current) => new Set(current).add(id));
+    } else {
+      setMessage(result.error);
+    }
+
+    setPendingId(null);
+  }
+
+  async function markAll() {
+    setPendingId("all");
+    setMessage("");
+    const result = await markEveryNotificationAsRead();
+
+    if (result.ok) {
+      setOptimisticallyRead(new Set(notifications.map((notification) => notification.id)));
+    } else {
+      setMessage(result.error);
+    }
+
+    setPendingId(null);
+  }
+
+  return (
+    <div className="relative">
+      <button
+        aria-expanded={open}
+        className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-sm font-bold text-[#26312f]"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        Notifications
+        {unreadCount > 0 && (
+          <span className="inline-flex min-w-5 justify-center rounded-full bg-[#1f5d54] px-1.5 py-0.5 text-xs text-white">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <section className="absolute right-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[#c9d3ce] bg-white text-left shadow-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-[#e3e8e4] px-4 py-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#66736f]">Updates</p>
+              <h2 className="mt-0.5 text-base font-bold text-[#111817]">Notifications</h2>
+            </div>
+            {unreadCount > 0 && (
+              <button
+                className="text-sm font-bold text-[#1f5d54] disabled:text-[#89938f]"
+                disabled={pendingId !== null}
+                onClick={markAll}
+                type="button"
+              >
+                {pendingId === "all" ? "Marking..." : "Mark all read"}
+              </button>
+            )}
+          </div>
+          <div className="max-h-[28rem] overflow-y-auto">
+            {items.length === 0 ? (
+              <p className="px-4 py-6 text-sm font-semibold text-[#66736f]">No notifications yet.</p>
+            ) : (
+              items.map((notification) => (
+                <article
+                  className={`border-b border-[#edf0ed] px-4 py-3 last:border-b-0 ${
+                    notification.read ? "bg-white" : "bg-[#f1f7f4]"
+                  }`}
+                  key={notification.id}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {!notification.read && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-[#1f5d54]" aria-label="Unread" />
+                        )}
+                        <h3 className="text-sm font-bold text-[#17201f]">{notification.title}</h3>
+                      </div>
+                      <p className="mt-1 text-sm leading-5 text-[#53645f]">{notification.message}</p>
+                      <p className="mt-2 text-xs font-semibold text-[#7a8581]">{notification.occurred}</p>
+                    </div>
+                    {!notification.read && (
+                      <button
+                        className="shrink-0 text-xs font-bold text-[#1f5d54] disabled:text-[#89938f]"
+                        disabled={pendingId !== null}
+                        onClick={() => markOne(notification.id)}
+                        type="button"
+                      >
+                        {pendingId === notification.id ? "Marking..." : "Mark read"}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+          {message && (
+            <p aria-live="polite" className="border-t border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800">
+              {message}
+            </p>
+          )}
+        </section>
+      )}
+    </div>
   );
 }
 

@@ -19,6 +19,16 @@ export type DeliveryActivity = {
   title: string;
 };
 
+export type AppNotification = {
+  id: string;
+  kind: "request" | "delivery" | "driver";
+  message: string;
+  occurred: string;
+  read: boolean;
+  requestId?: string;
+  title: string;
+};
+
 export type DistributionRequest = {
   id: string;
   recordId?: string;
@@ -92,6 +102,7 @@ export type DashboardData = {
   currentDriverApplication?: CurrentDriverApplication;
   deniedDrivers: PendingDriver[];
   familySizeRows: FamilySizeRow[];
+  notifications: AppNotification[];
   pendingDrivers: PendingDriver[];
   requestHistory?: DistributionRequest[];
   requests: DistributionRequest[];
