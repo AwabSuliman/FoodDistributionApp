@@ -1,4 +1,5 @@
-import type { DistributionRequest, RequestStatus } from "./types";
+import type { AuthProfile } from "./auth-core";
+import type { DistributionRequest, PendingDriver, RequestStatus } from "./types";
 
 const availableStatuses = new Set<RequestStatus>(["Approved", "Not delivered"]);
 const activeClaimStatuses = new Set<RequestStatus>([
@@ -15,4 +16,15 @@ export function getDriverRequestBuckets(requests: DistributionRequest[], driverN
       : [],
     available: requests.filter((request) => availableStatuses.has(request.status)),
   };
+}
+
+export function getAvailableDriversForProfile(drivers: PendingDriver[], profile: AuthProfile | null) {
+  if (!profile || profile.role === "admin") return drivers;
+  if (profile.role !== "driver") return [];
+
+  return drivers.filter((driver) =>
+    driver.userId
+      ? driver.userId === profile.userId
+      : driver.email.toLowerCase() === profile.email.toLowerCase(),
+  );
 }

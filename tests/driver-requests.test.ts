@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getDriverRequestBuckets } from "../src/lib/driver-requests.ts";
+import { getAvailableDriversForProfile, getDriverRequestBuckets } from "../src/lib/driver-requests.ts";
 import type { DistributionRequest, RequestStatus } from "../src/lib/types.ts";
 
 function request(id: string, status: RequestStatus, driver?: string): DistributionRequest {
@@ -53,4 +53,34 @@ test("claimed deliveries include only active work assigned to that driver", () =
 test("no driver identity produces no claimed-delivery bucket", () => {
   const buckets = getDriverRequestBuckets([request("MWI-1", "Driver assigned", "Omar Hassan")]);
   assert.deepEqual(buckets.assigned, []);
+});
+
+test("signed-in drivers are matched to approvals by user ID", () => {
+  const drivers = [
+    { email: "application@example.com", name: "Omar Hassan", phone: "555-0101", userId: "driver-one" },
+    { email: "other@example.com", name: "Layla Ahmed", phone: "555-0102", userId: "driver-two" },
+  ];
+  const visible = getAvailableDriversForProfile(drivers, {
+    email: "account@example.com",
+    name: "Omar",
+    role: "driver",
+    userId: "driver-one",
+  });
+
+  assert.deepEqual(visible, [drivers[0]]);
+});
+
+test("admins can select from every approved driver", () => {
+  const drivers = [
+    { email: "omar@example.com", name: "Omar Hassan", phone: "555-0101", userId: "driver-one" },
+    { email: "layla@example.com", name: "Layla Ahmed", phone: "555-0102", userId: "driver-two" },
+  ];
+  const visible = getAvailableDriversForProfile(drivers, {
+    email: "admin@example.com",
+    name: "Admin",
+    role: "admin",
+    userId: "admin",
+  });
+
+  assert.deepEqual(visible, drivers);
 });

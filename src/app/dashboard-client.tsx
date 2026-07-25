@@ -15,7 +15,7 @@ import {
 import type { DashboardActionResult } from "./actions";
 import { signOut } from "./login/actions";
 import type { AuthProfile } from "@/lib/auth";
-import { getDriverRequestBuckets } from "@/lib/driver-requests";
+import { getAvailableDriversForProfile, getDriverRequestBuckets } from "@/lib/driver-requests";
 import { requestCsvFilename, requestsToCsv } from "@/lib/request-csv";
 import { canEditRequest, canSubmitRecipientRequest } from "@/lib/request-access";
 import { getRequestProgressIndex, requestProgressOrder } from "@/lib/request-progress";
@@ -538,10 +538,8 @@ function DriverView({
   pendingDrivers: DashboardData["pendingDrivers"];
   requests: DistributionRequest[];
 }) {
-  const availableDrivers =
-    auth?.role === "admin" || !auth
-      ? approvedDrivers
-      : approvedDrivers.filter((driver) => driver.email.toLowerCase() === auth?.email.toLowerCase());
+  const availableDrivers = getAvailableDriversForProfile(approvedDrivers, auth);
+  const canChooseDriver = auth?.role === "admin" || !auth;
   const [selectedDriver, setSelectedDriver] = useState(availableDrivers[0]?.userId ?? availableDrivers[0]?.name ?? "");
   const activeDriver =
     availableDrivers.find((driver) => (driver.userId ?? driver.name) === selectedDriver) ?? availableDrivers[0];
@@ -551,26 +549,35 @@ function DriverView({
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
       <Panel title="Available deliveries" kicker="Driver">
         <div className="mb-4 grid gap-3 rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3">
-          <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
-            Driving as
-            <select
-              className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
-              disabled={availableDrivers.length === 0}
-              onChange={(event) => setSelectedDriver(event.target.value)}
-              value={activeDriver?.userId ?? activeDriver?.name ?? ""}
-            >
-              {availableDrivers.length === 0 ? (
-                <option value="">No approved drivers</option>
-              ) : (
-                availableDrivers.map((driver) => (
-                  <option key={driver.userId ?? driver.email} value={driver.userId ?? driver.name}>
-                    {driver.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-          <p className="text-sm font-semibold text-[#53645f]">Pending applications: {pendingDrivers.length}</p>
+          {canChooseDriver ? (
+            <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+              Driving as
+              <select
+                className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+                disabled={availableDrivers.length === 0}
+                onChange={(event) => setSelectedDriver(event.target.value)}
+                value={activeDriver?.userId ?? activeDriver?.name ?? ""}
+              >
+                {availableDrivers.length === 0 ? (
+                  <option value="">No approved drivers</option>
+                ) : (
+                  availableDrivers.map((driver) => (
+                    <option key={driver.userId ?? driver.email} value={driver.userId ?? driver.name}>
+                      {driver.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+          ) : (
+            <div>
+              <p className="text-xs font-bold uppercase text-[#66736f]">Driving as</p>
+              <p className="mt-1 font-bold text-[#26312f]">{activeDriver?.name ?? "Not approved"}</p>
+            </div>
+          )}
+          {canChooseDriver && (
+            <p className="text-sm font-semibold text-[#53645f]">Pending applications: {pendingDrivers.length}</p>
+          )}
         </div>
         <div className="grid gap-3">
           {available.length === 0 ? (
@@ -610,11 +617,16 @@ function DriverView({
           )}
         </Panel>
 
-      <Panel title="Claimed by me" kicker={activeDriver?.name ?? "Driver"}>
+      <Panel
+        title={auth?.role === "admin" ? "Assigned deliveries" : "Claimed by me"}
+        kicker={activeDriver?.name ?? "Driver"}
+      >
         <div className="grid gap-3">
           {assigned.length === 0 ? (
             <p className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3 text-sm font-semibold text-[#53645f]">
-              You have not claimed any deliveries yet.
+              {auth?.role === "admin"
+                ? "This driver has no active assigned deliveries."
+                : "You have not claimed any deliveries yet."}
             </p>
           ) : (
             assigned.map((request) => (
