@@ -94,7 +94,9 @@ npm test
 
 Without Supabase environment variables, the app stores demo state in `data/zakatul-fitr-state.json`. If that file is missing, the app recreates it from the seeded data in `src/lib/store.ts`.
 
-When Supabase environment variables are present, `/` and `/dashboard` require sign-in and `/login` handles sign-in, sign-up, and sign-out. New users can sign up as recipients or prospective drivers. Drivers cannot view or claim deliveries until an admin approves their database application. Admin access is trusted only from Supabase `app_metadata.role = "admin"`.
+When Supabase environment variables are present, `/` and `/dashboard` require sign-in and `/login` handles sign-in, sign-up, and sign-out. New users can sign up as recipients or prospective drivers. The database copies that signup choice into trusted `app_metadata` and enforces recipient and driver write permissions with row-level security. Drivers cannot view or claim deliveries until an admin approves their database application. Admin access is trusted only from Supabase `app_metadata.role = "admin"`.
+
+Driver applications use the signed-in account's name, email, and user ID. Applicants provide only their current phone number, preventing an application from being attached to a different identity.
 
 Supabase email confirmation links return through `/auth/callback`, which exchanges the auth code for a session and redirects back to the original protected page. In Supabase Auth settings, add your `NEXT_PUBLIC_SITE_URL` value to the allowed redirect URLs.
 

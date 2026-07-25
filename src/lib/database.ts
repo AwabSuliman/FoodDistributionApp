@@ -380,7 +380,7 @@ export async function createDatabaseDriverApplication(profile: AuthProfile, inpu
   const existing = await supabase.from("driver_applications").select("status").eq("user_id", profile.userId).maybeSingle();
   throwDatabaseError(existing.error, "Unable to check the driver application.");
 
-  const payload = { email: input.email, name: input.name, phone: input.phone, user_id: profile.userId };
+  const payload = { email: profile.email, name: profile.name, phone: input.phone, user_id: profile.userId };
   const result = existing.data?.status === "denied"
     ? await supabase
         .from("driver_applications")

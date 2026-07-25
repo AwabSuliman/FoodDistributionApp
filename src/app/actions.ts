@@ -168,14 +168,20 @@ export async function unclaimDelivery(id: string): Promise<DashboardActionResult
 
 export async function submitDriverApplication(formData: FormData): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
-    const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
-    const email = readRequiredText(formData, "email");
+    const profile = await requireAuthenticatedRole(["driver"]);
+
+    if (profile?.role === "admin") {
+      throw new PublicError("Admin accounts cannot submit driver applications.");
+    }
+
+    const email = profile?.email ?? readRequiredText(formData, "email");
+    const name = profile?.name ?? readRequiredText(formData, "name");
 
     validateEmail(email);
 
     await createDriverApplication(profile, {
       email,
-      name: readRequiredText(formData, "name"),
+      name,
       phone: readRequiredText(formData, "phone"),
     });
   });

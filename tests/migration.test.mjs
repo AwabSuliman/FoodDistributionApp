@@ -14,6 +14,11 @@ const adminUnclaimMigrationUrl = new URL(
   import.meta.url,
 );
 const adminUnclaimMigration = await readFile(adminUnclaimMigrationUrl, "utf8");
+const trustedRolesMigrationUrl = new URL(
+  "../supabase/migrations/20260724000300_enforce_trusted_signup_roles.sql",
+  import.meta.url,
+);
+const trustedRolesMigration = await readFile(trustedRolesMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -75,4 +80,13 @@ test("admins can release an active driver assignment", () => {
   assert.match(adminUnclaimMigration, /assigned_driver_id = auth\.uid\(\) or public\.is_admin\(\)/i);
   assert.match(adminUnclaimMigration, /set assigned_driver_id = null, status = 'approved'/i);
   assert.match(adminUnclaimMigration, /assigned driver or an admin can unclaim/i);
+});
+
+test("signup roles are trusted and enforced by database policies", () => {
+  assert.match(trustedRolesMigration, /before insert on auth\.users/i);
+  assert.match(trustedRolesMigration, /jsonb_build_object\('role', signup_role\)/i);
+  assert.match(trustedRolesMigration, /app_metadata' ->> 'role'\) = 'driver'/i);
+  assert.match(trustedRolesMigration, /app_metadata' ->> 'role'\) = 'recipient'/i);
+  assert.match(trustedRolesMigration, /drop policy "recipients create their requests"/i);
+  assert.match(trustedRolesMigration, /drop policy "users create their driver application"/i);
 });

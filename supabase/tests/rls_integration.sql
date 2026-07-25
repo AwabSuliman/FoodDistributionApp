@@ -51,9 +51,31 @@ begin
 end;
 $$;
 
+do $$
+declare
+  driver_application_was_blocked boolean := false;
+begin
+  begin
+    insert into public.driver_applications (user_id, name, phone, email)
+    values (
+      '99999999-0000-0000-0000-000000000101',
+      'QA Recipient',
+      '555-0199',
+      'qa-recipient-driver@invalid.test'
+    );
+  exception when others then
+    driver_application_was_blocked := true;
+  end;
+
+  if not driver_application_was_blocked then
+    raise exception 'recipient created a driver application';
+  end if;
+end;
+$$;
+
 select set_config(
   'request.jwt.claims',
-  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{}}',
+  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{"role":"driver"}}',
   true
 );
 
@@ -75,12 +97,49 @@ begin
 end;
 $$;
 
+do $$
+declare
+  recipient_request_was_blocked boolean := false;
+begin
+  begin
+    insert into public.distribution_requests (
+      owner_id,
+      season_id,
+      recipient_name,
+      phone,
+      email,
+      address,
+      household_size,
+      box_weight_lbs,
+      instructions
+    )
+    values (
+      '99999999-0000-0000-0000-000000000102',
+      (select id from public.seasons where is_active limit 1),
+      'QA Driver One',
+      '555-0102',
+      'qa-driver-request@invalid.test',
+      '102 QA Test Lane',
+      2,
+      14,
+      'Role enforcement verification'
+    );
+  exception when others then
+    recipient_request_was_blocked := true;
+  end;
+
+  if not recipient_request_was_blocked then
+    raise exception 'driver created a recipient request';
+  end if;
+end;
+$$;
+
 insert into public.driver_applications (user_id, name, phone, email)
 values ('99999999-0000-0000-0000-000000000102', 'QA Driver One', '555-0102', 'qa-driver-one@invalid.test');
 
 select set_config(
   'request.jwt.claims',
-  '{"sub":"99999999-0000-0000-0000-000000000103","role":"authenticated","app_metadata":{}}',
+  '{"sub":"99999999-0000-0000-0000-000000000103","role":"authenticated","app_metadata":{"role":"driver"}}',
   true
 );
 
@@ -115,7 +174,7 @@ $$;
 
 select set_config(
   'request.jwt.claims',
-  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{}}',
+  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{"role":"driver"}}',
   true
 );
 select public.claim_delivery('99999999-0000-0000-0000-000000000201');
@@ -143,14 +202,14 @@ $$;
 
 select set_config(
   'request.jwt.claims',
-  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{}}',
+  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{"role":"driver"}}',
   true
 );
 select public.claim_delivery('99999999-0000-0000-0000-000000000201');
 
 select set_config(
   'request.jwt.claims',
-  '{"sub":"99999999-0000-0000-0000-000000000103","role":"authenticated","app_metadata":{}}',
+  '{"sub":"99999999-0000-0000-0000-000000000103","role":"authenticated","app_metadata":{"role":"driver"}}',
   true
 );
 
@@ -170,7 +229,7 @@ $$;
 
 select set_config(
   'request.jwt.claims',
-  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{}}',
+  '{"sub":"99999999-0000-0000-0000-000000000102","role":"authenticated","app_metadata":{"role":"driver"}}',
   true
 );
 select public.set_delivery_status('99999999-0000-0000-0000-000000000201', 'heading_to_pickup');

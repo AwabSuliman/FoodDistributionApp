@@ -807,7 +807,11 @@ function DriverView({
 
       <div className="grid gap-5">
         <Panel title="Driver application" kicker="Volunteer">
-          {currentApplication?.status === "approved" ? (
+          {auth?.role === "admin" ? (
+            <p className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3 text-sm font-semibold text-[#53645f]">
+              Driver applications are managed from the admin roster.
+            </p>
+          ) : currentApplication?.status === "approved" ? (
             <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
               Approved to claim deliveries.
             </p>
@@ -817,9 +821,16 @@ function DriverView({
             </p>
           ) : (
             <ActionForm action={submitDriverApplication} className="grid gap-3" successMessage="Driver application submitted.">
-              <Field label="Full name" name="name" value={auth?.name ?? "Safiya Noor"} />
+              {auth ? (
+                <div className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3">
+                  <p className="text-sm font-bold text-[#26312f]">{auth.name}</p>
+                  <p className="mt-1 break-all text-sm text-[#66736f]">{auth.email}</p>
+                </div>
+              ) : (
+                <Field label="Full name" name="name" value="Safiya Noor" />
+              )}
               <Field label="Telephone/cellphone" name="phone" value={auth ? "" : "(555) 013-7720"} />
-              <Field label="Email" name="email" type="email" value={auth?.email ?? "safiya@example.com"} />
+              {!auth && <Field label="Email" name="email" type="email" value="safiya@example.com" />}
               <SubmitButton label={currentApplication?.status === "denied" ? "Reapply" : "Submit application"} />
             </ActionForm>
           )}

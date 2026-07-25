@@ -44,6 +44,17 @@ test("driver intent is retained without granting database approval", () => {
   assert.equal(profile.role, "driver");
 });
 
+test("trusted driver role overrides editable public metadata", () => {
+  const profile = profileFromClaims({
+    app_metadata: { role: "driver" },
+    email: "driver@example.com",
+    sub: "driver-id",
+    user_metadata: { name: "Driver", role: "recipient" },
+  });
+
+  assert.equal(profile.role, "driver");
+});
+
 test("recipient actions reject drivers while retaining the admin override", () => {
   assert.equal(roleCanAccess("recipient", ["recipient"]), true);
   assert.equal(roleCanAccess("driver", ["recipient"]), false);
