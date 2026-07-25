@@ -10,6 +10,7 @@ import {
   createRequest,
   resolvePendingDriver,
   setDeliveryStatus,
+  setRequestIntake,
   setRequestStatus,
   unclaimRequest,
   updateRequestDetails,
@@ -156,6 +157,13 @@ export async function createSeason(formData: FormData): Promise<DashboardActionR
     if (!input.ok) throw new PublicError(input.error);
 
     await activateSeason(input.data);
+  });
+}
+
+export async function updateRequestIntake(acceptingRequests: boolean): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+    await setRequestIntake(acceptingRequests);
   });
 }
 

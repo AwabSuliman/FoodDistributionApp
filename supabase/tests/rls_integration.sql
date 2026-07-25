@@ -195,6 +195,19 @@ select set_config(
   true
 );
 
+select public.set_request_intake(false);
+
+do $$
+declare
+  intake_is_open boolean;
+begin
+  select accepting_requests into intake_is_open from public.seasons where is_active;
+  if intake_is_open then raise exception 'admin could not close request intake'; end if;
+end;
+$$;
+
+select public.set_request_intake(true);
+
 update public.driver_applications
 set status = 'approved', reviewed_by = '99999999-0000-0000-0000-000000000104', reviewed_at = now();
 
@@ -304,11 +317,18 @@ select set_config(
 do $$
 declare
   final_status public.request_status;
+  lifecycle_events integer;
 begin
   select status into final_status
   from public.distribution_requests
   where id = '99999999-0000-0000-0000-000000000201';
   if final_status <> 'delivered' then raise exception 'recipient cannot read delivered status'; end if;
+
+  select count(*) into lifecycle_events
+  from public.delivery_events
+  where request_id = '99999999-0000-0000-0000-000000000201'
+    and event_type in ('request_submitted', 'request_edited', 'request_status_changed');
+  if lifecycle_events <> 4 then raise exception 'request lifecycle audit is incomplete'; end if;
 end;
 $$;
 

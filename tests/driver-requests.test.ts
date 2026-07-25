@@ -48,11 +48,16 @@ test("claimed deliveries include only active work assigned to that driver", () =
     buckets.assigned.map((item) => item.id),
     ["MWI-1", "MWI-2"],
   );
+  assert.deepEqual(
+    buckets.completed.map((item) => item.id),
+    ["MWI-4", "MWI-5"],
+  );
 });
 
-test("no driver identity produces no claimed-delivery bucket", () => {
+test("no driver identity produces no personal delivery buckets", () => {
   const buckets = getDriverRequestBuckets([request("MWI-1", "Driver assigned", "Omar Hassan")]);
   assert.deepEqual(buckets.assigned, []);
+  assert.deepEqual(buckets.completed, []);
 });
 
 test("signed-in drivers are matched to approvals by user ID", () => {

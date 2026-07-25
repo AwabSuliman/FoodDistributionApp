@@ -1,9 +1,13 @@
 import type { RequestStatus, Role } from "./types";
 
-export function canSubmitRecipientRequest(role: Role | undefined, hasActiveRequest: boolean) {
+export function canSubmitRecipientRequest(
+  role: Role | undefined,
+  hasActiveRequest: boolean,
+  acceptingRequests = true,
+) {
   if (!role) return true;
-  if (role === "admin") return true;
-  return role === "recipient" && !hasActiveRequest;
+  if (role === "admin") return acceptingRequests;
+  return role === "recipient" && acceptingRequests && !hasActiveRequest;
 }
 
 export function canEditRequest(status: RequestStatus) {

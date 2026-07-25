@@ -55,6 +55,7 @@ type DriverRow = {
 };
 
 type SeasonRow = {
+  accepting_requests: boolean;
   ends_on: string | null;
   id: string;
   is_active: boolean;
@@ -155,6 +156,7 @@ function toDriver(row: DriverRow): PendingDriver {
 
 function toSeason(row: SeasonRow): Season {
   return {
+    acceptingRequests: row.accepting_requests,
     endsOn: row.ends_on ?? undefined,
     id: row.id,
     isActive: row.is_active,
@@ -198,7 +200,7 @@ function groupDeliveryActivity(rows: DeliveryEventRow[], driverNames: Map<string
       eventType: row.event_type,
       fromStatus: row.from_status ? fromDatabaseStatus[row.from_status] : undefined,
       id: String(row.id),
-      note: row.event_type === "status_changed" ? row.notes ?? undefined : undefined,
+      note: ["request_edited", "status_changed"].includes(row.event_type) ? row.notes ?? undefined : undefined,
       occurred: relativeTime(row.created_at),
       toStatus: row.to_status ? fromDatabaseStatus[row.to_status] : undefined,
     });
@@ -232,7 +234,10 @@ function makeFamilySizeRows(requests: DistributionRequest[]): FamilySizeRow[] {
 export async function getDatabaseDashboardData(profile: AuthProfile): Promise<DashboardData> {
   const supabase = await createSupabaseServerClient();
   const [seasonsResult, driversResult, requestsResult, eventsResult] = await Promise.all([
-    supabase.from("seasons").select("id,name,starts_on,ends_on,is_active").order("starts_on", { ascending: false }),
+    supabase
+      .from("seasons")
+      .select("id,name,starts_on,ends_on,is_active,accepting_requests")
+      .order("starts_on", { ascending: false }),
     supabase.from("driver_applications").select("user_id,name,phone,email,status").order("created_at", { ascending: false }),
     supabase.from("distribution_requests").select("*").order("created_at", { ascending: false }),
     supabase
@@ -278,12 +283,13 @@ export async function createDatabaseRequest(profile: AuthProfile, input: Request
   const supabase = await createSupabaseServerClient();
   const { data: season, error: seasonError } = await supabase
     .from("seasons")
-    .select("id")
+    .select("id,accepting_requests")
     .eq("is_active", true)
     .maybeSingle();
 
   throwDatabaseError(seasonError, "Unable to load the active season.");
   if (!season) throw new PublicError("Requests are closed because there is no active distribution season.");
+  if (!season.accepting_requests) throw new PublicError("Requests are currently closed for this distribution season.");
 
   const { error } = await supabase.from("distribution_requests").insert({
     address: input.address,
@@ -341,6 +347,14 @@ export async function activateDatabaseSeason(input: SeasonInput) {
     season_starts_on: input.startsOn,
   });
   throwDatabaseError(error, "Unable to activate the season.");
+}
+
+export async function setDatabaseRequestIntake(acceptingRequests: boolean) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("set_request_intake", {
+    accepting_requests: acceptingRequests,
+  });
+  throwDatabaseError(error, "Unable to update request intake.");
 }
 
 export async function claimDatabaseRequest(id: string) {

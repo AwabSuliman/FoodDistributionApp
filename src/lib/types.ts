@@ -51,6 +51,7 @@ export type CurrentDriverApplication = PendingDriver & {
 };
 
 export type Season = {
+  acceptingRequests?: boolean;
   id: string;
   name: string;
   isActive: boolean;

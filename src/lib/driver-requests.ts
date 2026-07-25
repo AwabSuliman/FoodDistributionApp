@@ -8,6 +8,7 @@ const activeClaimStatuses = new Set<RequestStatus>([
   "Picked up",
   "Out for delivery",
 ]);
+const completedStatuses = new Set<RequestStatus>(["Delivered", "Not delivered"]);
 
 export function getDriverRequestBuckets(requests: DistributionRequest[], driverName?: string) {
   return {
@@ -15,6 +16,9 @@ export function getDriverRequestBuckets(requests: DistributionRequest[], driverN
       ? requests.filter((request) => request.driver === driverName && activeClaimStatuses.has(request.status))
       : [],
     available: requests.filter((request) => availableStatuses.has(request.status)),
+    completed: driverName
+      ? requests.filter((request) => request.driver === driverName && completedStatuses.has(request.status))
+      : [],
   };
 }
 

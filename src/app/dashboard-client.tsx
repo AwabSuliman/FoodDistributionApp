@@ -11,6 +11,7 @@ import {
   submitRequest,
   unclaimDelivery,
   updateDeliveryStatus,
+  updateRequestIntake,
   updateRequestStatus,
 } from "./actions";
 import type { DashboardActionResult } from "./actions";
@@ -143,7 +144,13 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
 
         <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="grid gap-5">
-            {activeRole === "recipient" && <RecipientView auth={auth} requests={requests} />}
+            {activeRole === "recipient" && (
+              <RecipientView
+                acceptingRequests={!auth || Boolean(data.activeSeason?.acceptingRequests)}
+                auth={auth}
+                requests={requests}
+              />
+            )}
             {activeRole === "admin" && (
               <AdminView
                 approvedDrivers={data.approvedDrivers}
@@ -173,9 +180,17 @@ export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: Dash
   );
 }
 
-function RecipientView({ auth, requests }: { auth: AuthProfile | null; requests: DistributionRequest[] }) {
+function RecipientView({
+  acceptingRequests,
+  auth,
+  requests,
+}: {
+  acceptingRequests: boolean;
+  auth: AuthProfile | null;
+  requests: DistributionRequest[];
+}) {
   const latestRequest = requests[0];
-  const canSubmit = canSubmitRecipientRequest(auth?.role, Boolean(latestRequest));
+  const canSubmit = canSubmitRecipientRequest(auth?.role, Boolean(latestRequest), acceptingRequests);
   const canEditOwnRequest = latestRequest
     ? canRecipientEditRequest(auth?.role, latestRequest.status)
     : false;
@@ -212,7 +227,7 @@ function RecipientView({ auth, requests }: { auth: AuthProfile | null; requests:
               <SubmitButton label="Submit request" />
             </ActionForm>
           </>
-        ) : (
+        ) : latestRequest ? (
           <>
             <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
               <p className="font-bold">Your request has already been submitted.</p>
@@ -257,6 +272,13 @@ function RecipientView({ auth, requests }: { auth: AuthProfile | null; requests:
               </div>
             )}
           </>
+        ) : (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            <p className="font-bold">Food box requests are currently closed.</p>
+            <p className="mt-2 text-sm leading-6">
+              The mosque will reopen this form when it is ready to accept requests for the active season.
+            </p>
+          </div>
         )}
       </Panel>
 
@@ -581,9 +603,26 @@ function AdminView({
             {canManageSeasons ? (
               <div className="grid gap-4">
                 {activeSeason && (
-                  <div className="border-b border-[#dfe5e1] pb-4">
-                    <p className="text-xs font-bold uppercase text-[#66736f]">Currently active</p>
-                    <p className="mt-1 text-sm font-semibold text-[#26312f]">{seasonDateRange(activeSeason)}</p>
+                  <div className="grid gap-3 border-b border-[#dfe5e1] pb-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-[#66736f]">Currently active</p>
+                      <p className="mt-1 text-sm font-semibold text-[#26312f]">{seasonDateRange(activeSeason)}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span
+                        className={`rounded-md border px-2 py-1 text-xs font-bold ${
+                          activeSeason.acceptingRequests
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : "border-amber-200 bg-amber-50 text-amber-900"
+                        }`}
+                      >
+                        Requests {activeSeason.acceptingRequests ? "open" : "closed"}
+                      </span>
+                      <ActionButton
+                        action={updateRequestIntake.bind(null, !activeSeason.acceptingRequests)}
+                        label={activeSeason.acceptingRequests ? "Close requests" : "Open requests"}
+                      />
+                    </div>
                   </div>
                 )}
                 <ActionForm action={createSeason} className="grid gap-3" successMessage="New season activated.">
@@ -799,10 +838,17 @@ function DriverView({
   const [selectedDriver, setSelectedDriver] = useState(availableDrivers[0]?.userId ?? availableDrivers[0]?.name ?? "");
   const activeDriver =
     availableDrivers.find((driver) => (driver.userId ?? driver.name) === selectedDriver) ?? availableDrivers[0];
-  const { assigned, available } = getDriverRequestBuckets(requests, activeDriver?.name);
+  const { assigned, available, completed } = getDriverRequestBuckets(requests, activeDriver?.name);
+  const deliveredCount = completed.filter((request) => request.status === "Delivered").length;
+  const missedCount = completed.filter((request) => request.status === "Not delivered").length;
 
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid grid-cols-3 gap-3 xl:col-span-2">
+        <Stat label="Active" value={assigned.length} tone="border-sky-200 bg-sky-50 text-sky-900" />
+        <Stat label="Delivered" value={deliveredCount} tone="border-teal-200 bg-teal-50 text-teal-900" />
+        <Stat label="Missed" value={missedCount} tone="border-rose-200 bg-rose-50 text-rose-900" />
+      </div>
       <Panel title="Available deliveries" kicker="Driver">
         <div className="mb-4 grid gap-3 rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3">
           {canChooseDriver ? (
@@ -907,6 +953,37 @@ function DriverView({
           )}
         </div>
       </Panel>
+        <Panel title="Delivery history" kicker={activeDriver?.name ?? "Driver"}>
+          {completed.length === 0 ? (
+            <p className="text-sm font-semibold text-[#53645f]">
+              No completed delivery attempts for this season yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-[#edf0ed]">
+              {completed.map((request) => {
+                const completion = [...(request.deliveryActivity ?? [])]
+                  .reverse()
+                  .find((activity) => activity.title === `Status: ${request.status}`);
+
+                return (
+                  <div className="py-3 first:pt-0 last:pb-0" key={request.recordId ?? request.id}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold">{request.recipient}</p>
+                        <p className="mt-1 text-xs font-semibold text-[#66736f]">{request.id}</p>
+                      </div>
+                      <StatusPill status={request.status} />
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-[#66736f]">{request.updated}</p>
+                    {request.status === "Not delivered" && completion && (
+                      <p className="mt-2 text-sm leading-6 text-[#53645f]">{completion.detail}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
       </div>
     </section>
   );
@@ -1118,9 +1195,9 @@ function DeliveryActivityList({
 
   return (
     <div className="mt-4 border-t border-[#dfe5e1] pt-4">
-      <h3 className="text-sm font-bold text-[#26312f]">Recent delivery activity</h3>
+      <h3 className="text-sm font-bold text-[#26312f]">Request activity</h3>
       {activities.length === 0 ? (
-        <p className="mt-3 text-sm font-semibold text-[#66736f]">No delivery activity has been recorded yet.</p>
+        <p className="mt-3 text-sm font-semibold text-[#66736f]">No request activity has been recorded yet.</p>
       ) : (
         <ol className="mt-3 grid gap-3">
           {activities.map((activity) => (

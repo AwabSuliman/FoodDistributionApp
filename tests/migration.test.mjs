@@ -34,6 +34,16 @@ const recipientEditsMigrationUrl = new URL(
   import.meta.url,
 );
 const recipientEditsMigration = await readFile(recipientEditsMigrationUrl, "utf8");
+const requestAuditMigrationUrl = new URL(
+  "../supabase/migrations/20260725000200_audit_request_lifecycle.sql",
+  import.meta.url,
+);
+const requestAuditMigration = await readFile(requestAuditMigrationUrl, "utf8");
+const requestIntakeMigrationUrl = new URL(
+  "../supabase/migrations/20260725000300_manage_request_intake.sql",
+  import.meta.url,
+);
+const requestIntakeMigration = await readFile(requestIntakeMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -135,4 +145,24 @@ test("recipients can edit only their own pre-approval requests", () => {
     recipientEditsMigration,
     /grant execute on function public\.update_request_details\([^)]+\) to authenticated/i,
   );
+});
+
+test("request submissions, review decisions, and edits are audited", () => {
+  assert.match(requestAuditMigration, /after insert or update on public\.distribution_requests/i);
+  assert.match(requestAuditMigration, /'request_submitted'/i);
+  assert.match(requestAuditMigration, /'request_status_changed'/i);
+  assert.match(requestAuditMigration, /'request_edited'/i);
+  assert.match(requestAuditMigration, /old\.status = 'submitted' and new\.status = 'under_review'/i);
+  assert.match(requestAuditMigration, /old\.status = 'under_review' and new\.status in \('approved', 'denied'\)/i);
+  assert.match(
+    requestAuditMigration,
+    /revoke all on function public\.audit_distribution_request\(\) from public, anon, authenticated/i,
+  );
+});
+
+test("admins can open and close request intake", () => {
+  assert.match(requestIntakeMigration, /add column accepting_requests boolean not null default true/i);
+  assert.match(requestIntakeMigration, /if not public\.is_admin\(\)/i);
+  assert.match(requestIntakeMigration, /where is_active/i);
+  assert.match(requestIntakeMigration, /grant execute on function public\.set_request_intake\(boolean\) to authenticated/i);
 });

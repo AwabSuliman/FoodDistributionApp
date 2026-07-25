@@ -165,6 +165,7 @@ export type Database = {
       }
       seasons: {
         Row: {
+          accepting_requests: boolean
           created_at: string
           ends_on: string | null
           id: string
@@ -174,6 +175,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepting_requests?: boolean
           created_at?: string
           ends_on?: string | null
           id?: string
@@ -183,6 +185,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepting_requests?: boolean
           created_at?: string
           ends_on?: string | null
           id?: string
@@ -205,6 +208,26 @@ export type Database = {
           season_starts_on: string
         }
         Returns: {
+          accepting_requests: boolean
+          created_at: string
+          ends_on: string | null
+          id: string
+          is_active: boolean
+          name: string
+          starts_on: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seasons"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_request_intake: {
+        Args: { accepting_requests: boolean }
+        Returns: {
+          accepting_requests: boolean
           created_at: string
           ends_on: string | null
           id: string

@@ -10,6 +10,7 @@ import {
   createDatabaseRequest,
   getDatabaseDashboardData,
   resolveDatabaseDriverApplication,
+  setDatabaseRequestIntake,
   setDatabaseDeliveryStatus,
   setDatabaseRequestStatus,
   unclaimDatabaseRequest,
@@ -55,6 +56,11 @@ export async function updateRequestDetails(id: string, input: RequestEditInput) 
 export async function activateSeason(input: SeasonInput) {
   if (!getSupabaseConfig()) throw new PublicError("Connect Supabase before managing distribution seasons.");
   return activateDatabaseSeason(input);
+}
+
+export async function setRequestIntake(acceptingRequests: boolean) {
+  if (!getSupabaseConfig()) throw new PublicError("Connect Supabase before managing request intake.");
+  return setDatabaseRequestIntake(acceptingRequests);
 }
 
 export async function claimRequest(id: string, driver?: string) {

@@ -217,6 +217,13 @@ export async function createRequest(input: RequestInput) {
     ...input,
     id,
     boxWeight: boxWeightForHousehold(input.householdSize),
+    deliveryActivity: [
+      makeDeliveryActivity({
+        eventType: "request_submitted",
+        id: `local-${Date.now()}`,
+        occurred: "Just now",
+      }),
+    ],
     status: "Submitted",
     updated: "Just now",
   };
@@ -239,6 +246,7 @@ export async function setRequestStatus(id: string, status: RequestStatus, note?:
     "Delivered",
     "Not delivered",
   ]);
+  const requestReviewStatuses = new Set<RequestStatus>(["Under review", "Approved", "Denied"]);
 
   await writeState({
     ...state,
@@ -246,19 +254,20 @@ export async function setRequestStatus(id: string, status: RequestStatus, note?:
       request.id === id
         ? {
             ...request,
-            deliveryActivity: deliveryStatuses.has(status)
-              ? [
+            deliveryActivity:
+              deliveryStatuses.has(status) || requestReviewStatuses.has(status)
+                ? [
+                    ...(request.deliveryActivity ?? []),
                   makeDeliveryActivity({
-                    eventType: "status_changed",
+                    eventType: requestReviewStatuses.has(status) ? "request_status_changed" : "status_changed",
                     fromStatus: request.status,
                     id: `local-${Date.now()}`,
                     note,
                     occurred: "Just now",
                     toStatus: status,
                   }),
-                  ...(request.deliveryActivity ?? []),
-                ]
-              : request.deliveryActivity,
+                  ]
+                : request.deliveryActivity,
             driver: status === "Approved" || status === "Denied" ? undefined : request.driver,
             status,
             updated: "Just now",
@@ -279,6 +288,14 @@ export async function updateRequestDetails(id: string, input: RequestEditInput) 
             ...request,
             address: input.address,
             boxWeight: `${input.boxWeightLbs} lb`,
+            deliveryActivity: [
+              ...(request.deliveryActivity ?? []),
+              makeDeliveryActivity({
+                eventType: "request_edited",
+                id: `local-${Date.now()}`,
+                occurred: "Just now",
+              }),
+            ],
             email: input.email,
             householdSize: input.householdSize,
             instructions: input.instructions,

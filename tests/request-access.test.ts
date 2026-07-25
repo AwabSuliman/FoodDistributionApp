@@ -10,11 +10,13 @@ import {
 test("signed-in recipients cannot submit twice in one active season", () => {
   assert.equal(canSubmitRecipientRequest("recipient", true), false);
   assert.equal(canSubmitRecipientRequest("recipient", false), true);
+  assert.equal(canSubmitRecipientRequest("recipient", false, false), false);
 });
 
 test("demo and admin views can still exercise the recipient form", () => {
   assert.equal(canSubmitRecipientRequest(undefined, true), true);
   assert.equal(canSubmitRecipientRequest("admin", true), true);
+  assert.equal(canSubmitRecipientRequest("admin", true, false), false);
 });
 
 test("driver-only accounts cannot submit recipient requests", () => {

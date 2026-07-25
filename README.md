@@ -6,10 +6,13 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 
 - Recipients can submit a food box request with household size, contact details, and delivery instructions.
 - Recipients can correct their own request details until the request is approved.
+- Recipients and admins can see an audit history from submission through delivery.
 - Admins can review, approve, deny, search, and filter requests.
+- Admins can open or close recipient request intake without ending the active season.
 - Admins can review the full volunteer roster and approve or deny driver applications.
 - Admins can assign and unassign deliveries directly from request details.
 - Drivers can apply to volunteer, claim available deliveries under their approved account, update delivery status, and record why a delivery was missed.
+- Drivers can review their active-season delivery totals and completed attempts.
 - The dashboard tracks requests by operational state, family size, approved drivers, denied drivers, and pending driver applications.
 - Admins can browse archived requests by distribution season, inspect their details, and export a season as CSV.
 - Supabase authentication protects the dashboard when Supabase environment variables are configured.
@@ -105,6 +108,10 @@ Supabase email confirmation links return through `/auth/callback`, which exchang
 The database policies scope recipients to their own requests, approved drivers to available or assigned deliveries, and admins to operational data. Delivery claims and state transitions execute atomically in PostgreSQL to prevent two drivers from claiming the same request.
 
 Recipients can update only their own submitted or under-review request. The protected database function locks edits after approval and recalculates box weight from household size; admins retain control of manual box-weight adjustments.
+
+Database triggers record request submission, detail edits, review, approval, and denial. Those entries appear alongside driver assignment and delivery updates in the request activity history.
+
+Admins can close request intake while keeping the current distribution season active, then reopen it later. The database checks the intake setting again when a recipient submits, so a stale browser cannot bypass the closure.
 
 Supabase Realtime keeps open dashboards current across users. Realtime change delivery still follows the table row-level security policies, so each account receives only changes it is allowed to read.
 
