@@ -1,12 +1,9 @@
 "use server";
 
 import { createSupabaseServerClient, getSupabaseConfig, profileFromClaims } from "@/lib/auth";
+import { roleCanAccess } from "@/lib/auth-core";
 import { PublicError } from "@/lib/errors";
 import type { Role } from "@/lib/types";
-
-function roleCanAccess(actualRole: Role, allowedRoles: Role[]) {
-  return actualRole === "admin" || allowedRoles.includes(actualRole);
-}
 
 export async function requireAuthenticatedRole(allowedRoles: Role[]) {
   if (!getSupabaseConfig()) {

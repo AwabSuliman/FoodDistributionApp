@@ -14,6 +14,10 @@ export type AuthClaims = {
   user_metadata?: Record<string, unknown>;
 };
 
+export function roleCanAccess(actualRole: Role, allowedRoles: Role[]) {
+  return actualRole === "admin" || allowedRoles.includes(actualRole);
+}
+
 export function safeRedirectPath(path: FormDataEntryValue | null | string | undefined) {
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || path.includes("\\")) {
     return "/dashboard";

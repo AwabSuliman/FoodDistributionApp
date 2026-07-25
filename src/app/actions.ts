@@ -62,7 +62,7 @@ function validateEmail(email: string) {
 
 export async function submitRequest(formData: FormData): Promise<DashboardActionResult> {
   return runDashboardAction(async () => {
-    const profile = await requireAuthenticatedRole(["recipient", "driver", "admin"]);
+    const profile = await requireAuthenticatedRole(["recipient"]);
     const householdSize = Number(readRequiredText(formData, "householdSize"));
     const email = readRequiredText(formData, "email");
 

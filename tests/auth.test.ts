@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { profileFromClaims, safeRedirectPath } from "../src/lib/auth-core.ts";
+import { profileFromClaims, roleCanAccess, safeRedirectPath } from "../src/lib/auth-core.ts";
 
 test("safeRedirectPath accepts only local absolute paths", () => {
   assert.equal(safeRedirectPath("/dashboard"), "/dashboard");
@@ -42,4 +42,10 @@ test("driver intent is retained without granting database approval", () => {
   });
 
   assert.equal(profile.role, "driver");
+});
+
+test("recipient actions reject drivers while retaining the admin override", () => {
+  assert.equal(roleCanAccess("recipient", ["recipient"]), true);
+  assert.equal(roleCanAccess("driver", ["recipient"]), false);
+  assert.equal(roleCanAccess("admin", ["recipient"]), true);
 });
