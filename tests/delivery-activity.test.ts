@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { makeDeliveryActivity } from "../src/lib/delivery-activity.ts";
+import { activityNoteForEvent, makeDeliveryActivity } from "../src/lib/delivery-activity.ts";
 
 test("request submission has a clear activity entry", () => {
   const activity = makeDeliveryActivity({
@@ -48,6 +48,14 @@ test("request denial activity includes the administrator's reason", () => {
     denial.detail,
     "An administrator denied the request. Reason: The household is outside the service area.",
   );
+});
+
+test("request review notes are preserved for activity details", () => {
+  assert.equal(
+    activityNoteForEvent("request_status_changed", "The household is outside the service area."),
+    "The household is outside the service area.",
+  );
+  assert.equal(activityNoteForEvent("assigned", "driver-id"), undefined);
 });
 
 test("request edits identify the type of editor", () => {

@@ -42,7 +42,9 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
           <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
             Full name
             <input
+              autoComplete="name"
               className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+              maxLength={100}
               name="name"
               required
               type="text"
@@ -53,7 +55,9 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
         <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
           Email
           <input
+            autoComplete="email"
             className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+            maxLength={254}
             name="email"
             required
             type="email"
@@ -64,6 +68,7 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
           <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
             Password
             <input
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
               minLength={mode === "signup" ? 8 : undefined}
               name="password"
@@ -90,6 +95,7 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
               className="rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
               defaultValue="recipient"
               name="role"
+              required
             >
               <option value="recipient">Recipient</option>
               <option value="driver">Driver</option>
@@ -97,9 +103,19 @@ export function AuthForm({ nextPath }: { nextPath: string }) {
           </label>
         )}
 
-        {state.error && <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">{state.error}</p>}
+        {state.error && (
+          <p
+            aria-live="polite"
+            className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800"
+          >
+            {state.error}
+          </p>
+        )}
         {state.message && (
-          <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+          <p
+            aria-live="polite"
+            className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800"
+          >
             {state.message}
           </p>
         )}

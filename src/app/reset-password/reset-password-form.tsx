@@ -36,7 +36,10 @@ export function ResetPasswordForm() {
       </label>
 
       {state.error && (
-        <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800"
+        >
           {state.error}
         </p>
       )}

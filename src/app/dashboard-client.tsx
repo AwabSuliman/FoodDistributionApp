@@ -109,7 +109,7 @@ function downloadCsv(contents: string, filename: string) {
 export function Dashboard({ auth, data }: { auth: AuthProfile | null; data: DashboardData }) {
   const visibleRoleOptions =
     auth?.role === "admin" || !auth ? roleOptions : roleOptions.filter((option) => option.role === auth.role);
-  const [activeRole, setActiveRole] = useState<Role>(visibleRoleOptions[0]?.role ?? "recipient");
+  const [activeRole, setActiveRole] = useState<Role>(auth?.role ?? visibleRoleOptions[0]?.role ?? "recipient");
   const { familySizeRows, pendingDrivers, requests } = data;
   const stats = useMemo(
     () => ({
@@ -539,7 +539,7 @@ function AdminView({
 
   return (
     <section className="grid gap-5">
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Needs review" value={stats.review} tone="border-amber-200 bg-amber-50 text-amber-900" />
         <Stat label="Available" value={stats.available} tone="border-emerald-200 bg-emerald-50 text-emerald-900" />
         <Stat label="Assigned" value={stats.assigned} tone="border-sky-200 bg-sky-50 text-sky-900" />
@@ -1455,7 +1455,7 @@ function Panel({
   title: string;
 }) {
   return (
-    <section className="rounded-lg border border-[#d8ded7] bg-white shadow-sm">
+    <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8ded7] bg-white shadow-sm">
       <div className="flex flex-col justify-between gap-2 border-b border-[#e3e8e4] px-4 py-3 sm:flex-row sm:items-center">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-[#66736f]">{kicker}</p>

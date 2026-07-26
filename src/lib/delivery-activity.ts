@@ -11,6 +11,12 @@ export type DeliveryActivityInput = {
   toStatus?: RequestStatus;
 };
 
+export function activityNoteForEvent(eventType: string, note: string | null) {
+  return ["request_edited", "request_status_changed", "status_changed"].includes(eventType)
+    ? note ?? undefined
+    : undefined;
+}
+
 export function makeDeliveryActivity(input: DeliveryActivityInput): DeliveryActivity {
   if (input.eventType === "request_submitted") {
     return {

@@ -19,7 +19,7 @@ import type {
   Season,
 } from "./types";
 import { PublicError } from "./errors";
-import { makeDeliveryActivity } from "./delivery-activity";
+import { activityNoteForEvent, makeDeliveryActivity } from "./delivery-activity";
 
 type RequestInput = {
   address: string;
@@ -238,7 +238,7 @@ function groupDeliveryActivity(rows: DeliveryEventRow[], driverNames: Map<string
       eventType: row.event_type,
       fromStatus: row.from_status ? fromDatabaseStatus[row.from_status] : undefined,
       id: String(row.id),
-      note: ["request_edited", "status_changed"].includes(row.event_type) ? row.notes ?? undefined : undefined,
+      note: activityNoteForEvent(row.event_type, row.notes),
       occurred: relativeTime(row.created_at),
       toStatus: row.to_status ? fromDatabaseStatus[row.to_status] : undefined,
     });
