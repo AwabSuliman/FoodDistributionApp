@@ -310,6 +310,7 @@ export async function setRequestStatus(id: string, status: RequestStatus, note?:
                   }),
                   ]
                 : request.deliveryActivity,
+            decisionNote: status === "Denied" ? note : undefined,
             driver: status === "Approved" || status === "Denied" ? undefined : request.driver,
             status,
             updated: "Just now",
@@ -317,6 +318,10 @@ export async function setRequestStatus(id: string, status: RequestStatus, note?:
         : request,
     ),
   });
+}
+
+export async function denyRequest(id: string, reason: string) {
+  return setRequestStatus(id, "Denied", reason);
 }
 
 export async function updateRequestDetails(id: string, input: RequestEditInput) {
@@ -407,7 +412,11 @@ export async function createDriverApplication(input: DriverApplicationInput) {
   });
 }
 
-export async function resolvePendingDriver(driverIdentifier: string, decision: DriverApplicationDecision) {
+export async function resolvePendingDriver(
+  driverIdentifier: string,
+  decision: DriverApplicationDecision,
+  reason?: string,
+) {
   const state = await readState();
   const driver = state.pendingDrivers.find((pendingDriver) =>
     matchesDriverApplication(pendingDriver, driverIdentifier),
@@ -420,14 +429,14 @@ export async function resolvePendingDriver(driverIdentifier: string, decision: D
   const approvedDrivers =
     decision === "approved" &&
     !state.approvedDrivers.some((approvedDriver) => matchesDriverApplication(approvedDriver, driverIdentifier))
-      ? [...state.approvedDrivers, driver]
+      ? [...state.approvedDrivers, { ...driver, decisionNote: undefined }]
       : state.approvedDrivers.filter(
           (approvedDriver) => !matchesDriverApplication(approvedDriver, driverIdentifier),
         );
   const deniedDrivers =
     decision === "denied" &&
     !state.deniedDrivers.some((deniedDriver) => matchesDriverApplication(deniedDriver, driverIdentifier))
-      ? [...state.deniedDrivers, driver]
+      ? [...state.deniedDrivers, { ...driver, decisionNote: reason }]
       : state.deniedDrivers.filter(
           (deniedDriver) => !matchesDriverApplication(deniedDriver, driverIdentifier),
         );
@@ -440,6 +449,10 @@ export async function resolvePendingDriver(driverIdentifier: string, decision: D
       (pendingDriver) => !matchesDriverApplication(pendingDriver, driverIdentifier),
     ),
   });
+}
+
+export async function denyPendingDriver(driverIdentifier: string, reason: string) {
+  return resolvePendingDriver(driverIdentifier, "denied", reason);
 }
 
 export async function markNotificationRead(id: string) {

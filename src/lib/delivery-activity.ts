@@ -44,7 +44,9 @@ export function makeDeliveryActivity(input: DeliveryActivityInput): DeliveryActi
         title: "Request approved",
       },
       Denied: {
-        detail: "An administrator denied the request.",
+        detail: input.note
+          ? `An administrator denied the request. Reason: ${input.note}`
+          : "An administrator denied the request.",
         title: "Request denied",
       },
       "Under review": {

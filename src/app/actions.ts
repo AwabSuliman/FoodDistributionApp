@@ -11,6 +11,8 @@ import {
   claimRequest,
   createDriverApplication,
   createRequest,
+  denyPendingDriver,
+  denyRequest,
   markAllNotificationsRead,
   markNotificationRead,
   resolvePendingDriver,
@@ -27,7 +29,7 @@ import type { DriverApplicationDecision, RequestStatus } from "@/lib/types";
 
 export type DashboardActionResult = { error: string; ok: false } | { ok: true };
 
-const editableStatuses = new Set<RequestStatus>(["Under review", "Approved", "Denied"]);
+const editableStatuses = new Set<RequestStatus>(["Under review", "Approved"]);
 const deliveryStatuses = new Set<RequestStatus>([
   "Heading to pickup",
   "Picked up",
@@ -95,6 +97,21 @@ function readRequestDetails(formData: FormData) {
   };
 }
 
+function readDecisionReason(formData: FormData) {
+  const reason = readRequiredText(
+    formData,
+    "reason",
+    "Reason",
+    inputLimits.decisionReason,
+  );
+
+  if (reason.length < 5) {
+    throw new PublicError("The reason must be at least 5 characters.");
+  }
+
+  return reason;
+}
+
 function readRequestIds(formData: FormData) {
   const ids = [
     ...new Set(
@@ -155,6 +172,16 @@ export async function bulkUpdateRequests(
   return runDashboardAction(async () => {
     await requireAuthenticatedRole(["admin"]);
     await bulkSetRequestStatus(readRequestIds(formData), status);
+  });
+}
+
+export async function denyFoodRequest(
+  id: string,
+  formData: FormData,
+): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+    await denyRequest(id, readDecisionReason(formData));
   });
 }
 
@@ -308,11 +335,21 @@ export async function resolveDriverApplication(
   return runDashboardAction(async () => {
     await requireAuthenticatedRole(["admin"]);
 
-    if (!driverApplicationDecisions.has(decision)) {
+    if (!driverApplicationDecisions.has(decision) || decision !== "approved") {
       throw new PublicError("Unsupported driver application decision.");
     }
 
     await resolvePendingDriver(driverIdentifier, decision);
+  });
+}
+
+export async function denyDriverApplication(
+  driverIdentifier: string,
+  formData: FormData,
+): Promise<DashboardActionResult> {
+  return runDashboardAction(async () => {
+    await requireAuthenticatedRole(["admin"]);
+    await denyPendingDriver(driverIdentifier, readDecisionReason(formData));
   });
 }
 

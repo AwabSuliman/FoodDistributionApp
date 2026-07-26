@@ -1,5 +1,6 @@
 export const inputLimits = {
   address: 300,
+  decisionReason: 400,
   email: 254,
   instructions: 1000,
   name: 120,

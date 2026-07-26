@@ -120,6 +120,7 @@ export type Database = {
           assigned_driver_id: string | null
           box_weight_lbs: number
           created_at: string
+          decision_note: string | null
           email: string
           household_size: number
           id: string
@@ -137,6 +138,7 @@ export type Database = {
           assigned_driver_id?: string | null
           box_weight_lbs: number
           created_at?: string
+          decision_note?: string | null
           email: string
           household_size: number
           id?: string
@@ -154,6 +156,7 @@ export type Database = {
           assigned_driver_id?: string | null
           box_weight_lbs?: number
           created_at?: string
+          decision_note?: string | null
           email?: string
           household_size?: number
           id?: string
@@ -186,6 +189,7 @@ export type Database = {
       driver_applications: {
         Row: {
           created_at: string
+          decision_note: string | null
           email: string
           id: string
           name: string
@@ -198,6 +202,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          decision_note?: string | null
           email: string
           id?: string
           name: string
@@ -210,6 +215,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          decision_note?: string | null
           email?: string
           id?: string
           name?: string
@@ -445,6 +451,26 @@ export type Database = {
       email_delivery_summary: {
         Args: never
         Returns: { failed: number; pending: number; sent: number }[]
+      }
+      deny_driver_application: {
+        Args: { denial_reason: string; target_user_id: string }
+        Returns: Database["public"]["Tables"]["driver_applications"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "driver_applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      deny_request: {
+        Args: { denial_reason: string; target_request_id: string }
+        Returns: Database["public"]["Tables"]["distribution_requests"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "distribution_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fail_email_outbox: {
         Args: { failure_message: string; target_outbox_id: number }

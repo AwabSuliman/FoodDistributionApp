@@ -7,6 +7,8 @@ import {
   bulkUpdateRequests,
   claimDelivery,
   createSeason,
+  denyDriverApplication,
+  denyFoodRequest,
   editOwnRequest,
   editRequest,
   markEveryNotificationAsRead,
@@ -58,6 +60,10 @@ const roleOptions: { role: Role; label: string; helper: string }[] = [
   { role: "admin", label: "Admin", helper: "Review requests and drivers" },
   { role: "driver", label: "Driver", helper: "Claim available deliveries" },
 ];
+
+type DenialTarget =
+  | { id: string; kind: "request"; label: string }
+  | { id: string; kind: "driver"; label: string };
 
 const statusTone: Record<RequestStatus, string> = {
   Submitted: "border-slate-200 bg-slate-50 text-slate-700",
@@ -477,6 +483,7 @@ function AdminView({
   const [driverRosterStatus, setDriverRosterStatus] = useState<DriverApplicationStatus>("pending");
   const [selectedRequestIds, setSelectedRequestIds] = useState<string[]>([]);
   const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>([]);
+  const [denialTarget, setDenialTarget] = useState<DenialTarget | null>(null);
   const filteredRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -732,7 +739,19 @@ function AdminView({
                         {request.status === "Under review" && (
                           <>
                             <ActionButton action={updateRequestStatus.bind(null, request.recordId ?? request.id, "Approved")} label="Approve" primary />
-                            <ActionButton action={updateRequestStatus.bind(null, request.recordId ?? request.id, "Denied")} label="Deny" />
+                            <button
+                              className="rounded-md border border-[#c9d3ce] px-3 py-2 text-sm font-bold text-[#26312f]"
+                              onClick={() =>
+                                setDenialTarget({
+                                  id: request.recordId ?? request.id,
+                                  kind: "request",
+                                  label: request.id,
+                                })
+                              }
+                              type="button"
+                            >
+                              Deny
+                            </button>
                           </>
                         )}
                         <button
@@ -1037,14 +1056,26 @@ function AdminView({
                           label="Approve"
                           primary
                         />
-                        <ActionButton
-                          action={resolveDriverApplication.bind(null, driverApplicationIdentifier(driver), "denied")}
-                          label="Deny"
-                        />
+                        <button
+                          className="rounded-md border border-[#c9d3ce] px-3 py-2 text-sm font-bold text-[#26312f]"
+                          onClick={() =>
+                            setDenialTarget({
+                              id: driverApplicationIdentifier(driver),
+                              kind: "driver",
+                              label: driver.name,
+                            })
+                          }
+                          type="button"
+                        >
+                          Deny
+                        </button>
                       </div>
                     )}
                     {driverRosterStatus === "denied" && (
-                      <p className="mt-3 text-xs font-semibold text-[#66736f]">May submit a new application.</p>
+                      <div className="mt-3 text-xs font-semibold leading-5 text-[#66736f]">
+                        {driver.decisionNote && <p>Reason: {driver.decisionNote}</p>}
+                        <p>May submit a new application.</p>
+                      </div>
                     )}
                   </div>
                 ))
@@ -1206,6 +1237,18 @@ function AdminView({
           </Panel>
         </div>
       </div>
+      {denialTarget && (
+        <DenialDialog
+          action={
+            denialTarget.kind === "request"
+              ? denyFoodRequest.bind(null, denialTarget.id)
+              : denyDriverApplication.bind(null, denialTarget.id)
+          }
+          label={denialTarget.label}
+          onClose={() => setDenialTarget(null)}
+          target={denialTarget.kind}
+        />
+      )}
     </section>
   );
 }
@@ -1305,6 +1348,11 @@ function DriverView({
             </p>
           ) : (
             <ActionForm action={submitDriverApplication} className="grid gap-3" successMessage="Driver application submitted.">
+              {currentApplication?.status === "denied" && currentApplication.decisionNote && (
+                <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold leading-6 text-rose-800">
+                  Application not approved: {currentApplication.decisionNote}
+                </p>
+              )}
               {auth ? (
                 <div className="rounded-md border border-[#dfe5e1] bg-[#f8faf8] p-3">
                   <p className="text-sm font-bold text-[#26312f]">{auth.name}</p>
@@ -1503,6 +1551,68 @@ function ActionForm({
   );
 }
 
+function DenialDialog({
+  action,
+  label,
+  onClose,
+  target,
+}: {
+  action: (formData: FormData) => Promise<DashboardActionResult>;
+  label: string;
+  onClose: () => void;
+  target: DenialTarget["kind"];
+}) {
+  return (
+    <div
+      aria-labelledby="denial-dialog-title"
+      aria-modal="true"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-4"
+      role="dialog"
+    >
+      <section className="w-full max-w-lg rounded-lg border border-[#c9d3ce] bg-white p-5 shadow-xl">
+        <p className="text-xs font-bold uppercase tracking-wide text-[#66736f]">Decision required</p>
+        <h2 className="mt-1 text-xl font-bold text-[#111817]" id="denial-dialog-title">
+          Deny {target === "request" ? `request ${label}` : `${label}'s application`}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[#53645f]">
+          This explanation will be shown to the {target === "request" ? "recipient" : "driver"} and included in their notification.
+        </p>
+        <ActionForm
+          action={action}
+          className="mt-4 grid gap-4"
+          onSuccess={onClose}
+          successMessage="Decision saved."
+        >
+          <label className="grid gap-1.5 text-sm font-semibold text-[#26312f]">
+            Reason
+            <textarea
+              autoFocus
+              className="min-h-28 rounded-md border border-[#c9d3ce] bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-[#1f5d54] focus:ring-2 focus:ring-[#1f5d54]/15"
+              maxLength={inputLimits.decisionReason}
+              minLength={5}
+              name="reason"
+              placeholder="Explain why this was not approved."
+              required
+            />
+          </label>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              className="rounded-md border border-[#c9d3ce] px-4 py-2 text-sm font-bold text-[#26312f]"
+              onClick={onClose}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button className="rounded-md bg-[#8b2f3c] px-4 py-2 text-sm font-bold text-white" type="submit">
+              Confirm denial
+            </button>
+          </div>
+        </ActionForm>
+      </section>
+    </div>
+  );
+}
+
 function SubmitButton({ label }: { label: string }) {
   return (
     <button className="rounded-md bg-[#1f5d54] px-4 py-3 font-bold text-white shadow-sm" type="submit">
@@ -1592,7 +1702,7 @@ function RequestTimeline({ request }: { request?: DistributionRequest }) {
       {(request.status === "Denied" || request.status === "Not delivered") && (
         <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
           {request.status === "Denied"
-            ? "This request was denied by the admin team."
+            ? `This request was denied by the admin team.${request.decisionNote ? ` Reason: ${request.decisionNote}` : ""}`
             : "The delivery attempt was marked not delivered and needs follow-up."}
         </p>
       )}
@@ -1771,6 +1881,11 @@ function RequestDetails({ request }: { request: DistributionRequest }) {
       <div className="md:col-span-2">
         <Info label="Delivery instructions" value={request.instructions} />
       </div>
+      {request.decisionNote && (
+        <div className="md:col-span-2">
+          <Info label="Decision reason" value={request.decisionNote} />
+        </div>
+      )}
     </dl>
   );
 }

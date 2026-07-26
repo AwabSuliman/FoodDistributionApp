@@ -11,6 +11,8 @@ import {
   claimDatabaseRequest,
   createDatabaseDriverApplication,
   createDatabaseRequest,
+  denyDatabaseDriverApplication,
+  denyDatabaseRequest,
   getDatabaseDashboardData,
   markAllDatabaseNotificationsRead,
   markDatabaseNotificationRead,
@@ -26,6 +28,8 @@ import {
   claimRequest as claimFileRequest,
   createDriverApplication as createFileDriverApplication,
   createRequest as createFileRequest,
+  denyPendingDriver as denyFilePendingDriver,
+  denyRequest as denyFileRequest,
   getDashboardData as getFileDashboardData,
   markAllNotificationsRead as markAllFileNotificationsRead,
   markNotificationRead as markFileNotificationRead,
@@ -54,6 +58,11 @@ export async function createRequest(profile: AuthProfile | null, input: RequestI
 export async function setRequestStatus(id: string, status: RequestStatus) {
   if (getSupabaseConfig()) return setDatabaseRequestStatus(id, status);
   return setFileRequestStatus(id, status);
+}
+
+export async function denyRequest(id: string, reason: string) {
+  if (getSupabaseConfig()) return denyDatabaseRequest(id, reason);
+  return denyFileRequest(id, reason);
 }
 
 export async function updateRequestDetails(id: string, input: RequestEditInput) {
@@ -118,6 +127,11 @@ export async function createDriverApplication(profile: AuthProfile | null, input
 export async function resolvePendingDriver(driverIdentifier: string, decision: DriverApplicationDecision) {
   if (getSupabaseConfig()) return resolveDatabaseDriverApplication(driverIdentifier, decision);
   return resolveFilePendingDriver(driverIdentifier, decision);
+}
+
+export async function denyPendingDriver(driverIdentifier: string, reason: string) {
+  if (getSupabaseConfig()) return denyDatabaseDriverApplication(driverIdentifier, reason);
+  return denyFilePendingDriver(driverIdentifier, reason);
 }
 
 export async function bulkApproveDrivers(driverIdentifiers: string[]) {

@@ -11,6 +11,7 @@ const columns: { heading: string; value: (request: DistributionRequest) => numbe
   { heading: "Status", value: (request) => request.status },
   { heading: "Driver", value: (request) => request.driver ?? "Unassigned" },
   { heading: "Delivery instructions", value: (request) => request.instructions },
+  { heading: "Decision reason", value: (request) => request.decisionNote ?? "" },
   { heading: "Updated", value: (request) => request.updated },
 ];
 

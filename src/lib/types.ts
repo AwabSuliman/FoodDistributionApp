@@ -32,6 +32,7 @@ export type AppNotification = {
 export type DistributionRequest = {
   id: string;
   recordId?: string;
+  decisionNote?: string;
   recipient: string;
   phone: string;
   email: string;
@@ -48,6 +49,7 @@ export type DistributionRequest = {
 };
 
 export type PendingDriver = {
+  decisionNote?: string;
   name: string;
   phone: string;
   email: string;

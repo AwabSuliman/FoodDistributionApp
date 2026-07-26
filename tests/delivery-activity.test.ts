@@ -33,6 +33,23 @@ test("request review decisions have specific activity entries", () => {
   assert.equal(approval.title, "Request approved");
 });
 
+test("request denial activity includes the administrator's reason", () => {
+  const denial = makeDeliveryActivity({
+    eventType: "request_status_changed",
+    fromStatus: "Under review",
+    id: "denial",
+    note: "The household is outside the service area.",
+    occurred: "Just now",
+    toStatus: "Denied",
+  });
+
+  assert.equal(denial.title, "Request denied");
+  assert.equal(
+    denial.detail,
+    "An administrator denied the request. Reason: The household is outside the service area.",
+  );
+});
+
 test("request edits identify the type of editor", () => {
   const recipientEdit = makeDeliveryActivity({
     eventType: "request_edited",

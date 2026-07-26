@@ -35,6 +35,7 @@ type RequestRow = {
   assigned_driver_id: string | null;
   box_weight_lbs: number;
   created_at: string;
+  decision_note: string | null;
   email: string;
   household_size: number;
   id: string;
@@ -49,6 +50,7 @@ type RequestRow = {
 };
 
 type DriverRow = {
+  decision_note: string | null;
   email: string;
   name: string;
   phone: string;
@@ -163,7 +165,13 @@ function relativeTime(value: string) {
 }
 
 function toDriver(row: DriverRow): PendingDriver {
-  return { email: row.email, name: row.name, phone: row.phone, userId: row.user_id };
+  return {
+    decisionNote: row.decision_note ?? undefined,
+    email: row.email,
+    name: row.name,
+    phone: row.phone,
+    userId: row.user_id,
+  };
 }
 
 function toSeason(row: SeasonRow): Season {
@@ -203,6 +211,7 @@ function toRequest(
   return {
     address: row.address,
     boxWeight: `${row.box_weight_lbs} lb`,
+    decisionNote: row.decision_note ?? undefined,
     deliveryActivity: activitiesByRequest.get(row.id) ?? [],
     driver: row.assigned_driver_id ? driverNames.get(row.assigned_driver_id) : undefined,
     email: row.email,
@@ -274,7 +283,10 @@ export async function getDatabaseDashboardData(profile: AuthProfile): Promise<Da
       .from("seasons")
       .select("id,name,starts_on,ends_on,is_active,accepting_requests")
       .order("starts_on", { ascending: false }),
-    supabase.from("driver_applications").select("user_id,name,phone,email,status").order("created_at", { ascending: false }),
+    supabase
+      .from("driver_applications")
+      .select("user_id,name,phone,email,status,decision_note")
+      .order("created_at", { ascending: false }),
     supabase.from("distribution_requests").select("*").order("created_at", { ascending: false }),
     supabase
       .from("delivery_events")
@@ -380,6 +392,15 @@ export async function setDatabaseRequestStatus(id: string, status: RequestStatus
   if (!data) throw new PublicError("This request has already moved to another status.");
 }
 
+export async function denyDatabaseRequest(id: string, reason: string) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("deny_request", {
+    denial_reason: reason,
+    target_request_id: id,
+  });
+  throwDatabaseError(error, "Unable to deny the request.");
+}
+
 export async function updateDatabaseRequestDetails(id: string, input: RequestEditInput) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("update_request_details", {
@@ -464,7 +485,13 @@ export async function createDatabaseDriverApplication(profile: AuthProfile, inpu
   const existing = await supabase.from("driver_applications").select("status").eq("user_id", profile.userId).maybeSingle();
   throwDatabaseError(existing.error, "Unable to check the driver application.");
 
-  const payload = { email: profile.email, name: profile.name, phone: input.phone, user_id: profile.userId };
+  const payload = {
+    decision_note: null,
+    email: profile.email,
+    name: profile.name,
+    phone: input.phone,
+    user_id: profile.userId,
+  };
   const result = existing.data?.status === "denied"
     ? await supabase
         .from("driver_applications")
@@ -484,13 +511,27 @@ export async function resolveDatabaseDriverApplication(userId: string, decision:
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("driver_applications")
-    .update({ reviewed_at: new Date().toISOString(), reviewed_by: (await supabase.auth.getUser()).data.user?.id, status: decision })
+    .update({
+      decision_note: null,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: (await supabase.auth.getUser()).data.user?.id,
+      status: decision,
+    })
     .eq("user_id", userId)
     .eq("status", "pending")
     .select("user_id")
     .maybeSingle();
   throwDatabaseError(error, "Unable to resolve the driver application.");
   if (!data) throw new PublicError("This driver application has already been reviewed.");
+}
+
+export async function denyDatabaseDriverApplication(userId: string, reason: string) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("deny_driver_application", {
+    denial_reason: reason,
+    target_user_id: userId,
+  });
+  throwDatabaseError(error, "Unable to deny the driver application.");
 }
 
 export async function bulkApproveDatabaseDrivers(userIds: string[]) {

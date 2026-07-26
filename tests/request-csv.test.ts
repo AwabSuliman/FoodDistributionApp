@@ -37,6 +37,19 @@ test("request CSV neutralizes spreadsheet formulas in user-entered fields", () =
   assert.match(csv, /"'=HYPERLINK\(""https:\/\/example\.org""\)"/);
 });
 
+test("request CSV includes denial reasons for admin records", () => {
+  const csv = requestsToCsv([
+    {
+      ...request,
+      decisionNote: "The address is outside the service area.",
+      status: "Denied",
+    },
+  ]);
+
+  assert.match(csv, /"Decision reason"/);
+  assert.match(csv, /"The address is outside the service area\."/);
+});
+
 test("request CSV filenames are stable and filesystem-safe", () => {
   assert.equal(requestCsvFilename("Ramadan 2027"), "distribution-requests-ramadan-2027.csv");
   assert.equal(requestCsvFilename("  "), "distribution-requests-active-season.csv");

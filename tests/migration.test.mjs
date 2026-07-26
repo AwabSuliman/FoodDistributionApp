@@ -69,6 +69,11 @@ const emailOutboxMigrationUrl = new URL(
   import.meta.url,
 );
 const emailOutboxMigration = await readFile(emailOutboxMigrationUrl, "utf8");
+const denialReasonsMigrationUrl = new URL(
+  "../supabase/migrations/20260725000900_require_denial_reasons.sql",
+  import.meta.url,
+);
+const denialReasonsMigration = await readFile(denialReasonsMigrationUrl, "utf8");
 
 test("all application tables have row level security enabled", () => {
   for (const table of ["seasons", "driver_applications", "distribution_requests", "delivery_events"]) {
@@ -258,4 +263,22 @@ test("transactional emails use a private retryable outbox", () => {
   assert.match(emailOutboxMigration, /status = case when attempts \+ 1 >= 5 then 'failed' else 'pending' end/i);
   assert.match(emailOutboxMigration, /grant execute on function public\.claim_email_outbox\(integer\) to service_role/i);
   assert.match(emailOutboxMigration, /if not public\.is_admin\(\)/i);
+});
+
+test("request and driver denials require an administrator reason", () => {
+  assert.match(denialReasonsMigration, /add column decision_note text/i);
+  assert.match(denialReasonsMigration, /status = 'denied' and decision_note is not null/i);
+  assert.match(denialReasonsMigration, /char_length\(trim\(decision_note\)\) between 5 and 400/i);
+  assert.match(denialReasonsMigration, /function public\.deny_request/i);
+  assert.match(denialReasonsMigration, /function public\.deny_driver_application/i);
+  assert.match(denialReasonsMigration, /for update/i);
+  assert.match(denialReasonsMigration, /Reason: ' \|\| new\.decision_note/i);
+  assert.match(
+    denialReasonsMigration,
+    /grant execute on function public\.deny_request\(uuid, text\) to authenticated/i,
+  );
+  assert.match(
+    denialReasonsMigration,
+    /grant execute on function public\.deny_driver_application\(uuid, text\) to authenticated/i,
+  );
 });

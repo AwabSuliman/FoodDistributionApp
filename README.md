@@ -8,6 +8,7 @@ A Next.js MVP for coordinating Zakatul Fitr food box distribution across recipie
 - Recipients can correct their own request details until the request is approved.
 - Recipients and admins can see an audit history from submission through delivery.
 - Admins can review, approve, deny, search, and filter requests.
+- Request and driver denials require a reason that is shown in activity history and user notifications.
 - Admins can move requests into review, approve them, or assign deliveries in batches.
 - Admins can open or close recipient request intake without ending the active season.
 - Admins can review the full volunteer roster and approve or deny driver applications.
@@ -116,6 +117,8 @@ The database policies scope recipients to their own requests, approved drivers t
 Recipients can update only their own submitted or under-review request. The protected database function locks edits after approval and recalculates box weight from household size; admins retain control of manual box-weight adjustments.
 
 Database triggers record request submission, detail edits, review, approval, and denial. Those entries appear alongside driver assignment and delivery updates in the request activity history.
+
+Admins must provide a short explanation when denying a food request or driver application. PostgreSQL enforces the requirement even for direct API updates, and the reason appears in the affected user’s dashboard, activity history, CSV exports, and in-app or email notification.
 
 Admins can close request intake while keeping the current distribution season active, then reopen it later. The database checks the intake setting again when a recipient submits, so a stale browser cannot bypass the closure.
 
